@@ -1,0 +1,511 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chord Projector</title>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <style>
+        html, body {
+            margin: 0;
+            padding: 0;
+            height: 100vh;
+            font-family: 'Roboto Mono', 'Courier New', monospace;
+            overflow: hidden; /* Prevents scrolling on the body */
+        }
+
+        body {
+            display: flex;
+            flex-direction: column;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        .controls-wrapper {
+            margin-bottom: 10px;
+            display: flex;
+            gap: 20px;
+        }
+
+        .text-input-container {
+            flex: 2; /* Takes 2/3 of the space */
+        }
+
+        .controls-container {
+            flex: 1; /* Takes 1/3 of the space */
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+        }
+
+        .controls {
+            margin-bottom: 10px;
+        }
+
+        .controls label {
+            display: inline-block;
+            margin-right: 10px;
+        }
+
+        .controls input {
+            width: 50px;
+            margin-right: 15px;
+        }
+
+        .status {
+            margin-top: 5px;
+            font-size: 12px;
+            color: #666;
+        }
+
+        .keyboard-shortcuts {
+            margin-top: auto;
+            font-size: 12px;
+            color: #666;
+        }
+
+        textarea {
+            width: 100%;
+            height: 120px; /* Taller text area */
+            resize: none;
+            box-sizing: border-box;
+        }
+
+        .container {
+            flex: 1;
+            width: 100%;
+            box-sizing: border-box;
+            overflow: hidden; /* Prevents scrolling */
+            margin-top: 10px;
+            border: 1px solid #ddd;
+            position: relative;
+        }
+
+        .container.fullscreen {
+            margin-top: 0;
+            border: none;
+        }
+
+        .multi-column {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            overflow-x: auto; /* Allow horizontal scrolling */
+            overflow-y: hidden; /* No vertical scrolling */
+        }
+
+        .content-columns {
+            display: flex;
+        }
+
+        .column {
+            height: 100%;
+            overflow: hidden;
+            margin-right: 20px; /* Default gap, will be controlled by JS */
+            position: relative;
+            padding-right: 10px;
+            flex-shrink: 0; /* Prevent columns from shrinking */
+        }
+
+        .has-horizontal-overflow-right::after {
+            content: '';
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            right: 0px;
+            width: 20px;
+            background: linear-gradient(.25turn, transparent, rgba(255,0,0,0.1) 40%, rgba(255,0,0,0.5) 80%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        .has-horizontal-overflow-left::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0px;
+            width: 20px;
+            background: linear-gradient(to left, transparent, rgba(255,0,0,0.1) 40%, rgba(255,0,0,0.5) 80%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+        /* column separator */
+        .column:not(:last-child)::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            right: 0;
+            height: 100%;
+            width: 1px;
+            background-color: #ccc;
+            z-index: 0;
+        }
+
+        .column:last-child {
+            margin-right: 0;
+            padding-right: 0;
+        }
+
+        .column p {
+            margin: 0;
+            padding: 0;
+            white-space: pre; /* Preserves whitespace including multiple spaces */
+            overflow: hidden; /* Hides overflow */
+            text-overflow: clip; /* Clips text that doesn't fit */
+            font-family: 'Roboto Mono', 'Courier New', monospace;
+            font-size: 16px; /* Default size that will be configurable */
+            line-height: 1.3; /* Tighter line spacing */
+        }
+
+        .column p .chord {
+            font-weight: 700;
+            background: rgba(0,0,0,0.09);
+            margin-left: -.1em;
+            padding-left: .1em;
+            margin-right: -.13em;
+            padding-right: .13em;
+        }
+
+        .column p.empty-line {
+            height: 1em; /* Height for empty lines */
+        }
+
+        #left-edge-pixel-anchor {
+            width: 1px;
+            height: 1px;
+            top: 0;
+            left: 0;
+        }
+
+        #right-edge-pixel-anchor {
+            width: 1px;
+            height: 1px;
+            top: 0;
+            right: 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="controls-wrapper" id="controls-wrapper">
+        <div class="text-input-container">
+            <textarea id="input-text" placeholder="Enter your text here..."></textarea>
+        </div>
+
+        <div class="controls-container">
+            <div class="controls">
+                <label for="font-size">Font size (px):</label>
+                <input type="number" id="font-size" min="8" max="36" value="16">
+                <div id="status" class="status"></div>
+            </div>
+
+            <div class="keyboard-shortcuts">
+                Keyboard shortcuts:
+                <strong>h</strong> - hide/show controls,
+                <strong>n</strong> - decrease font size,
+                <strong>m</strong> - increase font size
+            </div>
+        </div>
+    </div>
+
+    <div class="container">
+        <div class="multi-column">
+            <div id="left-edge-pixel-anchor"></div>
+            <div class="content-columns" id="content"></div>
+            <div id="right-edge-pixel-anchor"></div>
+        </div>
+    </div>
+
+    <script>
+        const fontSizeInput = document.getElementById('font-size');
+        const inputText = document.getElementById('input-text');
+        const contentDiv = document.getElementById('content');
+        const statusSpan = document.getElementById('status');
+        const controlsWrapper = document.getElementById('controls-wrapper');
+        const container = document.querySelector('.container');
+
+        const rgx = {
+            chord: /(?<chord>(^|(?<=[\s|()-]))(?<root>C|C#|Db|D|D#|Eb|E|F|F#|Gb|G|G#|Ab|A|A#|Bb|B)(?<variant>m|maj|min|dim|aug|sus|sus2|sus4|7sus|7sus2|7sus4|add9|add11|madd9|madd11|M|m6|m7|min6|min7|min11|maj7|maj9|mmaj7|mmaj9|7|9|11|13|6|2|4|5|°|ø|♭5|#5|b5|#9|b9)?(?:\/(?<bass>C|C#|Db|D|D#|Eb|E|F|F#|Gb|G|G#|Ab|A|A#|Bb|B))?($|(?=[\s|()-*])))/,
+            fingering: /((\d|x){4,7})/,
+            brackets: /(\[|\])/,
+        };
+
+        // Fixed column gap value
+        const columnGap = 20;
+
+        // Track if controls are visible
+        let controlsVisible = true;
+
+        // Load initial text from URL parameter if present
+        function loadTextFromURL() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const hashParams = window.location.hash && new URLSearchParams(window.location.hash.substring(1));
+
+            const title = urlParams.get('title') ?? (hashParams && hashParams.get('title'));
+            const text = urlParams.get('text') ?? (hashParams && hashParams.get('text'));
+
+            if (text) {
+                // Decode the text (handles URL encoding and line breaks)
+                try {
+                    inputText.value = text;
+
+                    // Hide controls by default when text is passed via URL
+                    controlsVisible = false;
+                    controlsWrapper.style.display = 'none';
+                    container.classList.add('fullscreen');
+                } catch (e) {
+                    console.error('Error decoding URL parameter:', e);
+                }
+            }
+
+            if (title) {
+                document.title = title;
+            }
+        }
+
+        // Load initial text on page load
+        loadTextFromURL();
+
+        // Initialize with content
+        updateContent();
+
+        // Add event listeners to all inputs to update automatically
+        fontSizeInput.addEventListener('input', updateContent);
+        inputText.addEventListener('input', updateContent);
+
+        // Also update on window resize
+        window.addEventListener('resize', updateContent);
+
+        window.addEventListener('hashchange', () => {
+            loadTextFromURL();
+            updateContent();
+        });
+
+        if ("IntersectionObserver" in window && "IntersectionObserverEntry" in window &&
+            "intersectionRatio" in window.IntersectionObserverEntry.prototype) {
+
+            const leftObserver = new IntersectionObserver(entries => {
+                if (entries[0].isIntersecting) {
+                    contentDiv.classList.remove('has-horizontal-overflow-left');
+                } else {
+                    contentDiv.classList.add('has-horizontal-overflow-left');
+                }
+            });
+
+            const rightObserver = new IntersectionObserver(entries => {
+                console.log("observer triggered on right, visible=" + entries[0].isIntersecting);
+                if (entries[0].isIntersecting) {
+                    contentDiv.classList.remove('has-horizontal-overflow-right');
+                } else {
+                    contentDiv.classList.add('has-horizontal-overflow-right');
+                }
+            });
+
+            leftObserver.observe(document.querySelector("#left-edge-pixel-anchor"));
+            rightObserver.observe(document.querySelector("#right-edge-pixel-anchor"));
+        }
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Check if no input has focus
+            const noInputHasFocus =
+                document.activeElement !== inputText &&
+                document.activeElement !== fontSizeInput;
+
+            if (noInputHasFocus) {
+                // Toggle controls visibility with 'h'
+                if (e.key.toLowerCase() === 'h') {
+                    // Toggle controls visibility
+                    controlsVisible = !controlsVisible;
+                    controlsWrapper.style.display = controlsVisible ? 'flex' : 'none';
+
+                    // Toggle fullscreen class on container
+                    if (controlsVisible) {
+                        container.classList.remove('fullscreen');
+                    } else {
+                        container.classList.add('fullscreen');
+                    }
+
+                    // Update content to use new space
+                    updateContent();
+                }
+
+                // Decrease font size with 'n'
+                else if (e.key.toLowerCase() === 'n') {
+                    const currentSize = parseFloat(fontSizeInput.value);
+                    if (currentSize > 8) { // Minimum font size
+                        fontSizeInput.value = currentSize - 0.5;
+                        updateContent();
+                    }
+                }
+
+                // Increase font size with 'm'
+                else if (e.key.toLowerCase() === 'm') {
+                    const currentSize = parseFloat(fontSizeInput.value);
+                    if (currentSize < 36) { // Maximum font size
+                        fontSizeInput.value = currentSize + 0.5;
+                        updateContent();
+                    }
+                }
+            }
+        });
+
+        function isChordLine(line) {
+            if (line.trim() === '') {
+                return false;
+            }
+
+            const allowedWithChords = `([\\s|%-*()]|${rgx.fingering.source}|${rgx.brackets.source})`;
+            const onlyChordsRegex = new RegExp(`^(${allowedWithChords}*${rgx.chord.source}${allowedWithChords}*)+$`);
+            return line.match(onlyChordsRegex);
+        }
+
+        function isTextLine(line) {
+            return !isChordLine(line) && line.trim() !== '';
+        }
+
+        function encodeHtml(str) {
+            const el = document.createElement('div');
+            el.textContent = str;
+            return el.innerHTML;
+        }
+
+        function spanifyChords(line) {
+            const chordRegexGlobal = new RegExp(rgx.chord.source, "g");
+
+            line = encodeHtml(line);
+
+            const match = line.match(chordRegexGlobal);
+            if (!match) {
+                return line;
+            }
+            if (match.length < 2 && !isChordLine(line)) {
+                return line;
+            }
+
+            return line.replaceAll(chordRegexGlobal, '<span class="chord">$&</span>');
+        }
+
+        function updateContent() {
+            // Reset status
+            statusSpan.textContent = '';
+
+            // Get settings
+            const fontSize = parseFloat(fontSizeInput.value);
+
+            // Parse text into lines
+            let lines = inputText.value.split('\n');
+
+            // Apply transformations for rendering only (not changing input value)
+            // 1. Trim whitespace from the end of each line
+            lines = lines.map(line => line.trimEnd());
+
+            // 2. Remove empty lines at the end of the text
+            while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
+                lines.pop();
+            }
+
+            // Clear content
+            contentDiv.innerHTML = '';
+
+            // Create a temporary element to measure text widths and heights
+            const measureEl = document.createElement('span');
+            measureEl.style.fontFamily = "'Roboto Mono', 'Courier New', monospace";
+            measureEl.style.fontSize = fontSize + 'px';
+            measureEl.style.position = 'absolute';
+            measureEl.style.visibility = 'hidden';
+            measureEl.style.whiteSpace = 'pre';
+            document.body.appendChild(measureEl);
+
+            // Calculate line metrics (width and height)
+            const lineMetrics = lines.map(line => {
+                const p = document.createElement('p');
+                p.style.fontSize = fontSize + 'px';
+                p.style.margin = '0';
+                p.style.padding = '0';
+                p.style.whiteSpace = 'pre';
+
+                if (line.trim() === '') {
+                    p.style.lineHeight = '1';
+                    p.className = 'empty-line';
+                    p.innerHTML = '&nbsp;';
+                } else {
+                    p.style.lineHeight = '1.3';
+                    p.innerHTML = spanifyChords(line);
+                }
+
+                measureEl.appendChild(p);
+                const width = p.getBoundingClientRect().width;
+                const height = p.getBoundingClientRect().height;
+                measureEl.removeChild(p);
+
+                return { width, height, line };
+            });
+
+            // Available space
+            const availableWidth = contentDiv.clientWidth;
+            const availableHeight = contentDiv.clientHeight;
+
+            // Create columns dynamically
+            const columns = [];
+            let currentColumn = null;
+            let currentHeight = 0;
+
+            for (let i = 0; i < lineMetrics.length; i++) {
+                const metric = lineMetrics[i];
+                const nextMetric = (i < lineMetrics.length - 1) ? lineMetrics[i + 1] : null;
+
+                // If we don't have a column yet or adding this line would exceed column height,
+                // create a new column (if there's space)
+                if (!currentColumn ||
+                    currentHeight + metric.height > availableHeight ||
+                    (nextMetric && isChordLine(metric.line) && isTextLine(nextMetric.line) &&
+                     currentHeight + metric.height + nextMetric.height > availableHeight)) {
+
+                    if (metric.line.trim() === '') {
+                        continue;
+                    }
+
+                    currentColumn = {
+                        div: document.createElement('div'),
+                        width: 0,
+                        lines: []
+                    };
+                    currentColumn.div.className = 'column';
+                    columns.push(currentColumn);
+                    currentHeight = 0;
+                }
+
+                // Add the line to the current column
+                currentColumn.lines.push(metric);
+                currentColumn.width = Math.max(currentColumn.width, metric.width);
+                currentHeight += metric.height;
+            }
+
+            // Render columns with their content
+            columns.forEach((column, i) => {
+                column.div.style.width = column.width + 'px';
+                column.div.style.marginRight = (i < columns.length - 1) ? columnGap + 'px' : '0';
+
+                column.lines.forEach(metric => {
+                    const p = document.createElement('p');
+                    if (metric.line.trim() === '') {
+                        p.className = 'empty-line';
+                        p.innerHTML = '&nbsp;'; // Non-breaking space to maintain height
+                    } else {
+                        p.innerHTML = spanifyChords(metric.line);
+                    }
+                    p.style.fontSize = fontSize + 'px';
+                    column.div.appendChild(p);
+                });
+
+                contentDiv.appendChild(column.div);
+            });
+
+            // Clean up measurement element
+            document.body.removeChild(measureEl);
+        }
+    </script>
+</body>
+</html>
