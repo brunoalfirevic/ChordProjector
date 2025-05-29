@@ -20,7 +20,7 @@
   } else if (action === 'open_projector') {
     openWindow(constructChordProjectorUrl(text, title));
   } else if (action === 'open_projector_in_place') {
-    openWindowInPlace(constructChordProjectorUrl(text, title));
+    location.href = constructChordProjectorUrl(text, title);
   } else {
     console.log('Invalid action');
     return Promise.reject('Invalid action');
@@ -37,11 +37,6 @@
     if (openedWindow) {
       openedWindow.focus();
     }
-  }
-
-  function openWindowInPlace(url) {
-    location.href =
-    window.location.url = url;
   }
 
   function copyToClipboard(text) {
