@@ -1,6 +1,4 @@
-# ChordProjector
-
-## Bookmarklets
+# Chord Projector
 
 [Open blank chord projector](https://brunoalfirevic.github.io/ChordProjector/chord_projector.html)
 
