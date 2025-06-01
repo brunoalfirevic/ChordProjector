@@ -52,12 +52,6 @@
             margin-right: 15px;
         }
 
-        .status {
-            margin-top: 5px;
-            font-size: 12px;
-            color: #666;
-        }
-
         .keyboard-shortcuts {
             margin-top: auto;
             font-size: 12px;
@@ -197,7 +191,6 @@
             <div class="controls">
                 <label for="font-size">Font size (px):</label>
                 <input type="number" id="font-size" min="8" max="36" value="16">
-                <div id="status" class="status"></div>
             </div>
 
             <div class="keyboard-shortcuts">
@@ -221,7 +214,6 @@
         const fontSizeInput = document.getElementById('font-size');
         const inputText = document.getElementById('input-text');
         const contentDiv = document.getElementById('content');
-        const statusSpan = document.getElementById('status');
         const controlsWrapper = document.getElementById('controls-wrapper');
         const container = document.querySelector('.container');
 
@@ -237,30 +229,33 @@
         // Track if controls are visible
         let controlsVisible = true;
 
-        // Load initial text from URL parameter if present
         function loadTextFromURL() {
-            const urlParams = new URLSearchParams(window.location.search);
             const hashParams = window.location.hash && new URLSearchParams(window.location.hash.substring(1));
 
-            const title = urlParams.get('title') ?? (hashParams && hashParams.get('title'));
-            const text = urlParams.get('text') ?? (hashParams && hashParams.get('text'));
+            const title = hashParams && hashParams.get('title');
+            const text = hashParams && hashParams.get('text');
 
-            if (text) {
-                // Decode the text (handles URL encoding and line breaks)
-                try {
-                    inputText.value = text;
+            if (text && inputText.value !== text) {
+                inputText.value = text;
 
-                    // Hide controls by default when text is passed via URL
-                    controlsVisible = false;
-                    controlsWrapper.style.display = 'none';
-                    container.classList.add('fullscreen');
-                } catch (e) {
-                    console.error('Error decoding URL parameter:', e);
-                }
+                // Hide controls by default when text is passed via URL
+                controlsVisible = false;
+                controlsWrapper.style.display = 'none';
+                container.classList.add('fullscreen');
             }
 
             if (title) {
                 document.title = title;
+            }
+        }
+
+        function updateUrlToMatchInputText() {
+            const hashParams = new URLSearchParams(window.location.hash && window.location.hash.substring(1) || '');
+            const existingTextHash = hashParams.get('text');
+
+            if (!existingTextHash || inputText.value != existingTextHash) {
+                hashParams.set('text', inputText.value);
+                window.location.hash = '#' + hashParams.toString();
             }
         }
 
@@ -272,7 +267,10 @@
 
         // Add event listeners to all inputs to update automatically
         fontSizeInput.addEventListener('input', updateContent);
-        inputText.addEventListener('input', updateContent);
+        inputText.addEventListener('input', () => {
+            updateUrlToMatchInputText();
+            updateContent();
+        });
 
         // Also update on window resize
         window.addEventListener('resize', updateContent);
@@ -388,9 +386,6 @@
         }
 
         function updateContent() {
-            // Reset status
-            statusSpan.textContent = '';
-
             // Get settings
             const fontSize = parseFloat(fontSizeInput.value);
 
