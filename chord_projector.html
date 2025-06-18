@@ -18,6 +18,7 @@
             display: flex;
             flex-direction: column;
             padding: 10px;
+            font-size: 16px; /* Default size that will be configurable */
             box-sizing: border-box;
         }
 
@@ -141,9 +142,8 @@
             padding-right: 0;
         }
 
-        .column p {
+        p.line {
             font-family: 'Roboto Mono', 'Courier New', monospace;
-            font-size: 16px; /* Default size that will be configurable */
             line-height: 1.3; /* Tighter line spacing */
             margin: 0;
             padding: 0;
@@ -151,7 +151,11 @@
             text-overflow: clip; /* Clips text that doesn't fit */
         }
 
-        .column p .chord {
+        p.line.empty-line {
+            line-height: 1;
+        }
+
+        p.line .chord {
             font-weight: 700;
             background: rgba(0,0,0,0.09);
             border-radius: 3px;
@@ -161,21 +165,23 @@
             padding-right: .13em;
         }
 
-        .column p .section-header {
+        .colorful p.line .chord {
+            color: rgb(0, 123, 255);
+            background: rgb(240, 248, 255);
+        }
+
+        p.line .header-line {
             color: rgb(255, 255, 255);
             background: rgb(142, 68, 173, 0.8);
             border-radius: 6px;
             padding-left: 6px;
             padding-right: 5px;
-            margin-top: 12px;
-            margin-bottom: 8px;
+
+            margin-top: 17px;
+            margin-bottom: 12px;
             display: inline-block;
             font-size: 0.98em;
             letter-spacing: 1px;
-        }
-
-        .column p.empty-line {
-            height: 1em; /* Height for empty lines */
         }
 
         #left-edge-pixel-anchor {
@@ -236,37 +242,8 @@
             brackets: /(\[|\])/,
         };
 
-        // Fixed column gap value
-        const columnGap = 20;
-
         // Track if controls are visible
         let controlsVisible = true;
-
-        function loadTextFromURL() {
-            const title = getHashParam('title');
-            const text = getHashParam('text');
-
-            if (text && inputText.value !== text) {
-                inputText.value = text;
-
-                // Hide controls by default when text is passed via URL
-                controlsVisible = false;
-                controlsWrapper.style.display = 'none';
-                container.classList.add('fullscreen');
-            }
-
-            if (title) {
-                document.title = title;
-            }
-        }
-
-        function updateUrlToMatchInputText() {
-            const existingTextHash = getHashParam('text');
-
-            if (!existingTextHash || inputText.value != existingTextHash) {
-                setHashParam('text', inputText.value);
-            }
-        }
 
         // Load initial text on page load
         loadTextFromURL();
@@ -315,45 +292,37 @@
 
         // Add keyboard shortcuts
         document.addEventListener('keydown', function(e) {
-            // Check if no input has focus
-            const noInputHasFocus =
-                document.activeElement !== inputText &&
-                document.activeElement !== fontSizeInput;
+            // Check if any input has focus
+            const anyInputHasFocus =
+                document.activeElement === inputText ||
+                document.activeElement === fontSizeInput;
 
-            if (noInputHasFocus) {
-                // Toggle controls visibility with 'h'
-                if (e.key.toLowerCase() === 'h') {
-                    // Toggle controls visibility
-                    controlsVisible = !controlsVisible;
-                    controlsWrapper.style.display = controlsVisible ? 'flex' : 'none';
+            if (anyInputHasFocus) {
+                return;
+            }
 
-                    // Toggle fullscreen class on container
-                    if (controlsVisible) {
-                        container.classList.remove('fullscreen');
-                    } else {
-                        container.classList.add('fullscreen');
-                    }
+            if (e.key.toLowerCase() === 'h') { // Toggle controls visibility with 'h'
+                controlsVisible = !controlsVisible;
+                controlsWrapper.style.display = controlsVisible ? 'flex' : 'none';
 
-                    // Update content to use new space
+                if (controlsVisible) {
+                    container.classList.remove('fullscreen');
+                } else {
+                    container.classList.add('fullscreen');
+                }
+
+                updateContent();
+            } else if (e.key.toLowerCase() === 'n') { // Decrease font size with 'n'
+                const currentSize = parseFloat(fontSizeInput.value);
+                if (currentSize > 8) { // Minimum font size
+                    fontSizeInput.value = currentSize - 0.5;
                     updateContent();
                 }
-
-                // Decrease font size with 'n'
-                else if (e.key.toLowerCase() === 'n') {
-                    const currentSize = parseFloat(fontSizeInput.value);
-                    if (currentSize > 8) { // Minimum font size
-                        fontSizeInput.value = currentSize - 0.5;
-                        updateContent();
-                    }
-                }
-
-                // Increase font size with 'm'
-                else if (e.key.toLowerCase() === 'm') {
-                    const currentSize = parseFloat(fontSizeInput.value);
-                    if (currentSize < 36) { // Maximum font size
-                        fontSizeInput.value = currentSize + 0.5;
-                        updateContent();
-                    }
+            } else if (e.key.toLowerCase() === 'm') { // Increase font size with 'm'
+                const currentSize = parseFloat(fontSizeInput.value);
+                if (currentSize < 36) { // Maximum font size
+                    fontSizeInput.value = currentSize + 0.5;
+                    updateContent();
                 }
             }
         });
@@ -373,8 +342,21 @@
             window.location.hash = '#' + hashParams.toString();
         }
 
+        function isEmptyLine(line) {
+            return line == undefined || line.trim() === '';
+        }
+
+        function isHeaderLine(line) {
+            if (isEmptyLine(line)) {
+                return false;
+            }
+
+            const headerRegexGlobal = new RegExp(rgx.header.source, "g");
+            return line.match(headerRegexGlobal);
+        }
+
         function isChordLine(line) {
-            if (line.trim() === '') {
+            if (isEmptyLine(line)) {
                 return false;
             }
 
@@ -384,7 +366,7 @@
         }
 
         function isTextLine(line) {
-            return !isChordLine(line) && line.trim() !== '';
+            return !isChordLine(line) && !isHeaderLine(line) && !isEmptyLine(line);
         }
 
         function encodeHtml(str) {
@@ -401,7 +383,7 @@
 
             const headerMatch = line.match(headerRegexGlobal);
             if (headerMatch) {
-                return line.replace(headerRegexGlobal, '<span class="section-header">$1</span>');
+                return line.replace(headerRegexGlobal, '<span class="header-line">$1</span>');
             }
 
             const chordMatch = line.match(chordRegexGlobal);
@@ -415,55 +397,93 @@
             return line.replaceAll(chordRegexGlobal, '<span class="chord">$&</span>');
         }
 
-        function updateContent() {
-            // Get settings
-            const fontSize = parseFloat(fontSizeInput.value);
+        function createLineHtmlElement(line) {
+            const p = document.createElement('p');
+            p.className = 'line';
 
-            // Parse text into lines
-            let lines = inputText.value.split('\n');
-
-            // Apply transformations for rendering only (not changing input value)
-            // 1. Trim whitespace from the end of each line
-            lines = lines.map(line => line.trimEnd());
-
-            // 2. Remove empty lines at the end of the text
-            while (lines.length > 0 && lines[lines.length - 1].trim() === '') {
-                lines.pop();
+            if (isEmptyLine(line)) {
+                p.className += ' empty-line';
+                p.innerHTML = '&nbsp;';
+            } else {
+                p.innerHTML = spanifyChords(line);
             }
+
+            return p;
+        }
+
+        function loadTextFromURL() {
+            const title = getHashParam('title');
+            const text = getHashParam('text');
+
+            if (text && inputText.value !== text) {
+                inputText.value = text;
+
+                // Hide controls by default when text is passed via URL
+                controlsVisible = false;
+                controlsWrapper.style.display = 'none';
+                container.classList.add('fullscreen');
+            }
+
+            if (title) {
+                document.title = title;
+            }
+        }
+
+        function updateUrlToMatchInputText() {
+            const existingTextHash = getHashParam('text');
+
+            if (!existingTextHash || inputText.value != existingTextHash) {
+                setHashParam('text', inputText.value);
+            }
+        }
+
+        function parseLines() {
+            const rawLines = inputText.value.split('\n');
+            const result = [];
+
+            for (let i = 0; i < rawLines.length; i++) {
+                const line = rawLines[i];
+                const previousLine = i > 0 && rawLines[i - 1];
+                const nextLine = i < rawLines.length - 1 && rawLines[i + 1];
+
+                if (isEmptyLine(line) && (isHeaderLine(nextLine) || isHeaderLine(previousLine))) {
+                    continue;
+                }
+
+                result.push(line.trimEnd()); // Trim whitespace from the end of each line
+            };
+
+            // Remove empty lines at the end of the text
+            while (result.length > 0 && isEmptyLine(result[result.length - 1])) {
+                result.pop();
+            }
+
+            return result;
+        }
+
+        function updateContent() {
+            const lines = parseLines();
 
             // Clear content
             contentDiv.innerHTML = '';
 
+            // Set font size
+            document.body.style.fontSize = parseFloat(fontSizeInput.value) + 'px';
+
             // Create a temporary element to measure text widths and heights
             const measureEl = document.createElement('span');
-            measureEl.style.fontFamily = "'Roboto Mono', 'Courier New', monospace";
-            measureEl.style.fontSize = fontSize + 'px';
             measureEl.style.position = 'absolute';
             measureEl.style.visibility = 'hidden';
-            measureEl.style.whiteSpace = 'pre';
             document.body.appendChild(measureEl);
 
             // Calculate line metrics (width and height)
             const lineMetrics = lines.map(line => {
-                const p = document.createElement('p');
-                p.style.fontSize = fontSize + 'px';
-                p.style.margin = '0';
-                p.style.padding = '0';
-                p.style.whiteSpace = 'pre';
+                const lineHtmlElement = createLineHtmlElement(line);
 
-                if (line.trim() === '') {
-                    p.style.lineHeight = '1';
-                    p.className = 'empty-line';
-                    p.innerHTML = '&nbsp;';
-                } else {
-                    p.style.lineHeight = '1.3';
-                    p.innerHTML = spanifyChords(line);
-                }
-
-                measureEl.appendChild(p);
-                const width = p.getBoundingClientRect().width;
-                const height = p.getBoundingClientRect().height;
-                measureEl.removeChild(p);
+                measureEl.appendChild(lineHtmlElement);
+                const width = lineHtmlElement.getBoundingClientRect().width;
+                const height = lineHtmlElement.getBoundingClientRect().height;
+                measureEl.removeChild(lineHtmlElement);
 
                 return { width, height, line };
             });
@@ -488,7 +508,7 @@
                     (nextMetric && isChordLine(metric.line) && isTextLine(nextMetric.line) &&
                      currentHeight + metric.height + nextMetric.height > availableHeight)) {
 
-                    if (metric.line.trim() === '') {
+                    if (isEmptyLine(metric.line.trim())) {
                         continue;
                     }
 
@@ -511,18 +531,11 @@
             // Render columns with their content
             columns.forEach((column, i) => {
                 column.div.style.width = column.width + 'px';
-                column.div.style.marginRight = (i < columns.length - 1) ? columnGap + 'px' : '0';
+                column.div.style.marginRight = (i < columns.length - 1) ? '20px' : '0';
 
                 column.lines.forEach(metric => {
-                    const p = document.createElement('p');
-                    if (metric.line.trim() === '') {
-                        p.className = 'empty-line';
-                        p.innerHTML = '&nbsp;'; // Non-breaking space to maintain height
-                    } else {
-                        p.innerHTML = spanifyChords(metric.line);
-                    }
-                    p.style.fontSize = fontSize + 'px';
-                    column.div.appendChild(p);
+                    const lineHtmlElement = createLineHtmlElement(metric.line);
+                    column.div.appendChild(lineHtmlElement);
                 });
 
                 contentDiv.appendChild(column.div);
