@@ -161,6 +161,19 @@
             padding-right: .13em;
         }
 
+        .column p .section-header {
+            color: rgb(255, 255, 255);
+            background: rgb(142, 68, 173, 0.8);
+            border-radius: 6px;
+            padding-left: 6px;
+            padding-right: 5px;
+            margin-top: 12px;
+            margin-bottom: 8px;
+            display: inline-block;
+            font-size: 0.98em;
+            letter-spacing: 1px;
+        }
+
         .column p.empty-line {
             height: 1em; /* Height for empty lines */
         }
@@ -218,6 +231,7 @@
 
         const rgx = {
             chord: /(?<chord>(^|(?<=[\s|()-]))(?<root>C|C#|Db|D|D#|Eb|E|F|F#|Gb|G|G#|Ab|A|A#|Bb|B|Hb|H)(?<variant>m|maj|min|dim|aug|sus|sus2|sus4|7sus|7sus2|7sus4|add9|add11|madd9|madd11|M|m6|m7|min6|min7|min11|maj7|maj9|mmaj7|mmaj9|7|9|11|13|6|2|4|5|°|ø|♭5|#5|b5|#9|b9)?(?:\/(?<bass>C|C#|Db|D|D#|Eb|E|F|F#|Gb|G|G#|Ab|A|A#|Bb|B|Hb|H))?($|(?=[\s|()-*])))/,
+            header: /\s*\[([^\]]+)\]\s*/,
             fingering: /((\d|x){4,7})/,
             brackets: /(\[|\])/,
         };
@@ -381,14 +395,20 @@
 
         function spanifyChords(line) {
             const chordRegexGlobal = new RegExp(rgx.chord.source, "g");
+            const headerRegexGlobal = new RegExp(rgx.header.source, "g");
 
             line = encodeHtml(line);
 
-            const match = line.match(chordRegexGlobal);
-            if (!match) {
+            const headerMatch = line.match(headerRegexGlobal);
+            if (headerMatch) {
+                return line.replace(headerRegexGlobal, '<span class="section-header">$1</span>');
+            }
+
+            const chordMatch = line.match(chordRegexGlobal);
+            if (!chordMatch) {
                 return line;
             }
-            if (match.length < 2 && !isChordLine(line)) {
+            if (chordMatch.length < 2 && !isChordLine(line)) {
                 return line;
             }
 
