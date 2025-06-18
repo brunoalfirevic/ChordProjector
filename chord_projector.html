@@ -94,7 +94,6 @@
 
         .column {
             height: 100%;
-            overflow: hidden;
             margin-right: 20px; /* Default gap, will be controlled by JS */
             position: relative;
             padding-right: 10px;
@@ -143,21 +142,21 @@
         }
 
         .column p {
-            margin: 0;
-            padding: 0;
-            white-space: pre; /* Preserves whitespace including multiple spaces */
-            overflow: hidden; /* Hides overflow */
-            text-overflow: clip; /* Clips text that doesn't fit */
             font-family: 'Roboto Mono', 'Courier New', monospace;
             font-size: 16px; /* Default size that will be configurable */
             line-height: 1.3; /* Tighter line spacing */
+            margin: 0;
+            padding: 0;
+            white-space: pre; /* Preserves whitespace including multiple spaces */
+            text-overflow: clip; /* Clips text that doesn't fit */
         }
 
         .column p .chord {
             font-weight: 700;
             background: rgba(0,0,0,0.09);
-            margin-left: -.1em;
-            padding-left: .1em;
+            border-radius: 3px;
+            margin-left: -.13em;
+            padding-left: .13em;
             margin-right: -.13em;
             padding-right: .13em;
         }
