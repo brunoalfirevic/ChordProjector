@@ -230,10 +230,8 @@
         let controlsVisible = true;
 
         function loadTextFromURL() {
-            const hashParams = window.location.hash && new URLSearchParams(window.location.hash.substring(1));
-
-            const title = hashParams && hashParams.get('title');
-            const text = hashParams && hashParams.get('text');
+            const title = getHashParam('title');
+            const text = getHashParam('text');
 
             if (text && inputText.value !== text) {
                 inputText.value = text;
@@ -250,12 +248,10 @@
         }
 
         function updateUrlToMatchInputText() {
-            const hashParams = new URLSearchParams(window.location.hash && window.location.hash.substring(1) || '');
-            const existingTextHash = hashParams.get('text');
+            const existingTextHash = getHashParam('text');
 
             if (!existingTextHash || inputText.value != existingTextHash) {
-                hashParams.set('text', inputText.value);
-                window.location.hash = '#' + hashParams.toString();
+                setHashParam('text', inputText.value);
             }
         }
 
@@ -348,6 +344,21 @@
                 }
             }
         });
+
+        function getHashParam(param) {
+            if (!window.location.hash) {
+                return null;
+            }
+
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            return hashParams.get(param);
+        }
+
+        function setHashParam(param, value) {
+            const hashParams = new URLSearchParams(window.location.hash && window.location.hash.substring(1) || '');
+            hashParams.set(param, value);
+            window.location.hash = '#' + hashParams.toString();
+        }
 
         function isChordLine(line) {
             if (line.trim() === '') {
