@@ -170,16 +170,36 @@
             background: rgb(240, 248, 255);
         }
 
-        p.line .header-line {
+        p.line.header-line {
+            padding-top: 17px;
+            padding-bottom: 12px;
+        }
+
+        p.line.header-line:first-child {
+            padding-top: 0px !important;
+        }
+
+        p.line.header-line > span {
+            background: rgba(0,0,0,0.09);
+            border-radius: 5px;
+        }
+
+        p.line.header-line .wh {
+            display:none;
+        }
+
+        .colorful p.line.header-line .bracket {
+            display:none;
+        }
+
+        .colorful p.line.header-line > span {
+            /* TODO
             color: rgb(255, 255, 255);
-            background: rgb(142, 68, 173, 0.8);
-            border-radius: 6px;
+            background: rgb(142, 68, 173, 0.8);*/
+            background: rgb(142, 68, 173, 0.2);
+
             padding-left: 6px;
             padding-right: 5px;
-
-            margin-top: 17px;
-            margin-bottom: 12px;
-            display: inline-block;
             font-size: 0.98em;
             letter-spacing: 1px;
         }
@@ -220,7 +240,7 @@
         </div>
     </div>
 
-    <div class="container">
+    <div class="container colorful">
         <div class="multi-column">
             <div id="left-edge-pixel-anchor"></div>
             <div class="content-columns" id="content"></div>
@@ -236,10 +256,10 @@
         const container = document.querySelector('.container');
 
         const rgx = {
-            chord: /(?<chord>(^|(?<=[\s|()-]))(?<root>C|C#|Db|D|D#|Eb|E|F|F#|Gb|G|G#|Ab|A|A#|Bb|B|Hb|H)(?<variant>m|maj|min|dim|aug|sus|sus2|sus4|7sus|7sus2|7sus4|add9|add11|madd9|madd11|M|m6|m7|min6|min7|min11|maj7|maj9|mmaj7|mmaj9|7|9|11|13|6|2|4|5|°|ø|♭5|#5|b5|#9|b9)?(?:\/(?<bass>C|C#|Db|D|D#|Eb|E|F|F#|Gb|G|G#|Ab|A|A#|Bb|B|Hb|H))?($|(?=[\s|()-*])))/,
-            header: /\s*\[([^\]]+)\]\s*/,
-            fingering: /((\d|x){4,7})/,
-            brackets: /(\[|\])/,
+            chord: /(^|(?<=[\s|()-]))(?<root>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)(?<variant>m(6|7)?|m?maj(7|9)?|min(6|7|11)?|dim|aug|7?sus(2|4)?|m?add(9|11)?|M|2|4|5|6|7|9|11|13|°|ø|(♯|#|b|♭)(5|9))?(\/(?<bass>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?))?($|(?=[\s|()-*]))/g,
+            header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
+            fingering: /((\d|x){4,7})/g,
+            brackets: /(\[|\])/g,
         };
 
         // Track if controls are visible
@@ -342,31 +362,34 @@
             window.location.hash = '#' + hashParams.toString();
         }
 
-        function isEmptyLine(line) {
-            return line == undefined || line.trim() === '';
+        function isEmpty(str) {
+            return str == undefined || str === '';
+        }
+
+        function isWhitespace(str) {
+            return str == undefined || str.trim() === '';
         }
 
         function isHeaderLine(line) {
-            if (isEmptyLine(line)) {
+            if (isWhitespace(line)) {
                 return false;
             }
 
-            const headerRegexGlobal = new RegExp(rgx.header.source, "g");
-            return line.match(headerRegexGlobal);
+            return line.match(rgx.header);
         }
 
         function isChordLine(line) {
-            if (isEmptyLine(line)) {
+            if (isWhitespace(line)) {
                 return false;
             }
 
             const allowedWithChords = `([\\s|%-*()]|${rgx.fingering.source}|${rgx.brackets.source})`;
-            const onlyChordsRegex = new RegExp(`^(${allowedWithChords}*${rgx.chord.source}${allowedWithChords}*)+$`);
-            return line.match(onlyChordsRegex);
+            const nothingButChordsRegex = new RegExp(`^(${allowedWithChords}*${rgx.chord.source}${allowedWithChords}*)+$`);
+            return line.match(nothingButChordsRegex);
         }
 
         function isTextLine(line) {
-            return !isChordLine(line) && !isHeaderLine(line) && !isEmptyLine(line);
+            return !isChordLine(line) && !isHeaderLine(line) && !isWhitespace(line);
         }
 
         function encodeHtml(str) {
@@ -375,35 +398,115 @@
             return el.innerHTML;
         }
 
+        function span(content, clazz) {
+            if (isEmpty(content)) {
+                return "";
+            }
+
+            return `<span class='${clazz}'>${encodeHtml(content)}</span>`;
+        }
+
+        function processChord(chord) {
+            function normalize(note) {
+                const noteDegrees = {
+                    'C': 0,
+                    'D': 2,
+                    'E': 4,
+                    'F': 5,
+                    'G': 7,
+                    'A': 9,
+                    'H': 11,
+                    'B': 11,
+                };
+
+                const accidentals = {
+                    '♯' : 1,
+                    '#' : 1,
+                    'b' : -1,
+                    '♭' : -1,
+                }
+
+                const preferredAccidental = 'b'
+
+                const notes = [];
+                for (const [key, value] of Object.entries(noteDegrees)) {
+                    notes[value] = key;
+                }
+
+                for (let i = 0; i < 12; i++) {
+                    if (!notes[i]) {
+                        notes[i] = notes[i - accidentals[preferredAccidental]] + preferredAccidental;
+                    }
+                }
+
+                let degree = noteDegrees[note[0]] + (accidentals[note[1]] || 0);
+
+                degree %= 12;
+                if (degree < 0) {
+                    degree += 12;
+                }
+
+                return notes[degree];
+            }
+
+            let result = normalize(chord.root);
+
+            if (chord.variant) {
+                result += chord.variant;
+            }
+
+            if (chord.bass) {
+                result += "/" + normalize(chord.bass);
+            }
+
+            return result;
+        }
+
         function spanifyChords(line) {
-            const chordRegexGlobal = new RegExp(rgx.chord.source, "g");
-            const headerRegexGlobal = new RegExp(rgx.header.source, "g");
-
-            line = encodeHtml(line);
-
-            const headerMatch = line.match(headerRegexGlobal);
-            if (headerMatch) {
-                return line.replace(headerRegexGlobal, '<span class="header-line">$1</span>');
+            const chordMatch = line.match(rgx.chord);
+            if (!chordMatch || (chordMatch.length < 2 && !isChordLine(line))) {
+                return encodeHtml(line);
             }
 
-            const chordMatch = line.match(chordRegexGlobal);
-            if (!chordMatch) {
-                return line;
-            }
-            if (chordMatch.length < 2 && !isChordLine(line)) {
-                return line;
-            }
+            const chordWithWhitespace = new RegExp(`${rgx.chord.source}(?<whitespace>\\s*)`, "g");
 
-            return line.replaceAll(chordRegexGlobal, '<span class="chord">$&</span>');
+            return line.replaceAll(chordWithWhitespace, (match, ...args) => {
+                const chord = args.at(-1);
+
+                let whitespace = chord.whitespace || '';
+                const originalChordLength = match.length - whitespace.length;
+
+                const processedChord = processChord(chord);
+
+                if (processedChord.length < originalChordLength) {
+                    whitespace = ' '.repeat(originalChordLength - processedChord.length) + whitespace;
+                } else if (processedChord.length > originalChordLength && whitespace.length >= 2) {
+                    whitespace = whitespace.substring(Math.min(processedChord.length - originalChordLength,
+                                                               whitespace.length - 1));
+                }
+
+                return `${span(processedChord, 'chord')}${whitespace}`;
+            });
         }
 
         function createLineHtmlElement(line) {
             const p = document.createElement('p');
             p.className = 'line';
 
-            if (isEmptyLine(line)) {
+            if (isWhitespace(line)) {
                 p.className += ' empty-line';
                 p.innerHTML = '&nbsp;';
+            } else if (isHeaderLine(line)) {
+                p.className += ' header-line';
+                p.innerHTML = line.replaceAll(
+                    rgx.header,
+                    (match, wh1, br1, title, br2, wh2) =>
+                    `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
+                    /* TODO span(wh1, 'wh') +
+                                                          span(br1, 'bracket') +
+                                                          span(title, 'title') +
+                                                          span(br2, 'bracket') +
+                                                          span(wh2, 'wh'));*/
             } else {
                 p.innerHTML = spanifyChords(line);
             }
@@ -446,7 +549,7 @@
                 const previousLine = i > 0 && rawLines[i - 1];
                 const nextLine = i < rawLines.length - 1 && rawLines[i + 1];
 
-                if (isEmptyLine(line) && (isHeaderLine(nextLine) || isHeaderLine(previousLine))) {
+                if (isWhitespace(line) && (isHeaderLine(nextLine) || isHeaderLine(previousLine))) {
                     continue;
                 }
 
@@ -454,7 +557,7 @@
             };
 
             // Remove empty lines at the end of the text
-            while (result.length > 0 && isEmptyLine(result[result.length - 1])) {
+            while (result.length > 0 && isWhitespace(result[result.length - 1])) {
                 result.pop();
             }
 
@@ -483,10 +586,13 @@
                 measureEl.appendChild(lineHtmlElement);
                 const width = lineHtmlElement.getBoundingClientRect().width;
                 const height = lineHtmlElement.getBoundingClientRect().height;
-                measureEl.removeChild(lineHtmlElement);
+                measureEl.removeChild(lineHtmlElement)
 
                 return { width, height, line };
             });
+
+            // Clean up measurement element
+            document.body.removeChild(measureEl);
 
             // Available space
             const availableWidth = contentDiv.clientWidth;
@@ -508,7 +614,7 @@
                     (nextMetric && isChordLine(metric.line) && isTextLine(nextMetric.line) &&
                      currentHeight + metric.height + nextMetric.height > availableHeight)) {
 
-                    if (isEmptyLine(metric.line.trim())) {
+                    if (isWhitespace(metric.line)) {
                         continue;
                     }
 
@@ -540,9 +646,6 @@
 
                 contentDiv.appendChild(column.div);
             });
-
-            // Clean up measurement element
-            document.body.removeChild(measureEl);
         }
     </script>
 </body>
