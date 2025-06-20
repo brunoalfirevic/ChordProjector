@@ -41,11 +41,11 @@
 
         .controls {
             margin-bottom: 10px;
+            font-size: 12px;
         }
 
         .controls label {
             display: inline-block;
-            margin-right: 10px;
         }
 
         .controls input {
@@ -89,7 +89,7 @@
             overflow-y: hidden; /* No vertical scrolling */
         }
 
-        .content-columns {
+        #content {
             display: flex;
         }
 
@@ -193,10 +193,7 @@
         }
 
         .colorful p.line.header-line > span {
-            /* TODO
-            color: rgb(255, 255, 255);
-            background: rgb(142, 68, 173, 0.8);*/
-            background: rgb(142, 68, 173, 0.2);
+            background: rgb(142, 68, 173, 0.15);
 
             padding-left: 6px;
             padding-right: 5px;
@@ -229,6 +226,23 @@
             <div class="controls">
                 <label for="font-size">Font size (px):</label>
                 <input type="number" id="font-size" min="8" max="36" value="16">
+
+                <label for="transpose">Transpose:</label>
+                <input type="number" id="transpose" min="-12" max="12" value="0">
+
+                <label for="capo">Capo:</label>
+                <input type="number" id="capo" min="0" max="12" value="0">
+
+                <label for="preferred-accidental">Preferred accidental:</label>
+                <select id="preferred-accidental">
+                  <option value="#" selected>#</option>
+                  <option value="♯">♯ (stylized)</option>
+                  <option value="b">b</option>
+                  <option value="♭">♭ (stylized)</option>
+                </select>
+
+                <label for="colorful">Colorful</label>
+                <input type="checkbox" id="colorful" value="true" checked>
             </div>
 
             <div class="keyboard-shortcuts">
@@ -240,113 +254,15 @@
         </div>
     </div>
 
-    <div class="container colorful">
+    <div class="container">
         <div class="multi-column">
             <div id="left-edge-pixel-anchor"></div>
-            <div class="content-columns" id="content"></div>
+            <div id="content"></div>
             <div id="right-edge-pixel-anchor"></div>
         </div>
     </div>
 
-    <script>
-        const fontSizeInput = document.getElementById('font-size');
-        const inputText = document.getElementById('input-text');
-        const contentDiv = document.getElementById('content');
-        const controlsWrapper = document.getElementById('controls-wrapper');
-        const container = document.querySelector('.container');
-
-        const rgx = {
-            chord: /(^|(?<=[\s|()-]))(?<root>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)(?<variant>m(6|7)?|m?maj(7|9)?|min(6|7|11)?|dim|aug|7?sus(2|4)?|m?add(9|11)?|M|2|4|5|6|7|9|11|13|°|ø|(♯|#|b|♭)(5|9))?(\/(?<bass>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?))?($|(?=[\s|()-*]))/g,
-            header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
-            fingering: /((\d|x){4,7})/g,
-            brackets: /(\[|\])/g,
-        };
-
-        // Track if controls are visible
-        let controlsVisible = true;
-
-        // Load initial text on page load
-        loadTextFromURL();
-
-        // Initialize with content
-        updateContent();
-
-        // Add event listeners to all inputs to update automatically
-        fontSizeInput.addEventListener('input', updateContent);
-        inputText.addEventListener('input', () => {
-            updateUrlToMatchInputText();
-            updateContent();
-        });
-
-        // Also update on window resize
-        window.addEventListener('resize', updateContent);
-
-        window.addEventListener('hashchange', () => {
-            loadTextFromURL();
-            updateContent();
-        });
-
-        if ("IntersectionObserver" in window && "IntersectionObserverEntry" in window &&
-            "intersectionRatio" in window.IntersectionObserverEntry.prototype) {
-
-            const leftObserver = new IntersectionObserver(entries => {
-                if (entries[0].isIntersecting) {
-                    contentDiv.classList.remove('has-horizontal-overflow-left');
-                } else {
-                    contentDiv.classList.add('has-horizontal-overflow-left');
-                }
-            });
-
-            const rightObserver = new IntersectionObserver(entries => {
-                console.log("observer triggered on right, visible=" + entries[0].isIntersecting);
-                if (entries[0].isIntersecting) {
-                    contentDiv.classList.remove('has-horizontal-overflow-right');
-                } else {
-                    contentDiv.classList.add('has-horizontal-overflow-right');
-                }
-            });
-
-            leftObserver.observe(document.querySelector("#left-edge-pixel-anchor"));
-            rightObserver.observe(document.querySelector("#right-edge-pixel-anchor"));
-        }
-
-        // Add keyboard shortcuts
-        document.addEventListener('keydown', function(e) {
-            // Check if any input has focus
-            const anyInputHasFocus =
-                document.activeElement === inputText ||
-                document.activeElement === fontSizeInput;
-
-            if (anyInputHasFocus) {
-                return;
-            }
-
-            if (e.key.toLowerCase() === 'h') { // Toggle controls visibility with 'h'
-                controlsVisible = !controlsVisible;
-                controlsWrapper.style.display = controlsVisible ? 'flex' : 'none';
-
-                if (controlsVisible) {
-                    container.classList.remove('fullscreen');
-                } else {
-                    container.classList.add('fullscreen');
-                }
-
-                updateContent();
-            } else if (e.key.toLowerCase() === 'n') { // Decrease font size with 'n'
-                const currentSize = parseFloat(fontSizeInput.value);
-                if (currentSize > 8) { // Minimum font size
-                    fontSizeInput.value = currentSize - 0.5;
-                    updateContent();
-                }
-            } else if (e.key.toLowerCase() === 'm') { // Increase font size with 'm'
-                const currentSize = parseFloat(fontSizeInput.value);
-                if (currentSize < 36) { // Maximum font size
-                    fontSizeInput.value = currentSize + 0.5;
-                    updateContent();
-                }
-            }
-        });
-
+    <script id="utilityFunctions">
         function getHashParam(param) {
             if (!window.location.hash) {
                 return null;
@@ -362,6 +278,34 @@
             window.location.hash = '#' + hashParams.toString();
         }
 
+        function toString(value) {
+            if (value == undefined) {
+                return '';
+            }
+            return `${value}`;
+        }
+
+        function toFloat(value) {
+            const result = parseFloat(value);
+            return isNaN(result) ? undefined : result;
+        }
+
+        function toBoolean(value) {
+            return value === true || value === 'true';
+        }
+
+        function coalesce(value, defaultValue) {
+            if (value == undefined) {
+                return defaultValue;
+            }
+
+            return value;
+        }
+
+        function isDisplayed(element) {
+            return element.style.display !== 'none';
+        }
+
         function isEmpty(str) {
             return str == undefined || str === '';
         }
@@ -369,6 +313,175 @@
         function isWhitespace(str) {
             return str == undefined || str.trim() === '';
         }
+
+        function createElement(element, className, style) {
+            const el = document.createElement(element);
+
+            if (className) {
+                el.className = className;
+            }
+
+            if (style) {
+                for (const [key, value] of Object.entries(style)) {
+                    el.style[key] = value;
+                }
+            }
+
+            return el;
+        }
+
+        function encodeHtml(str) {
+            const el = createElement('div');
+            el.textContent = str;
+            return el.innerHTML;
+        }
+
+        function span(content, className) {
+            if (isEmpty(content)) {
+                return "";
+            }
+
+            return `<span class='${className}'>${encodeHtml(content)}</span>`;
+        }
+
+        function bindInputAndHash(element, hashParam, onChange, parse, stringify) {
+            parse = parse || (value => value);
+            stringify = stringify || (value => value);
+
+            let currentValue = parse('');
+
+            function getElementValue() {
+                return element.nodeName === "INPUT" && element.type === 'checkbox' ? (element.checked ? element.value : '') : element.value;
+            }
+
+            function loadFromUrl(isInitialLoad) {
+                const value = getHashParam(hashParam);
+
+                if (value != undefined) {
+                    const parsedValue = parse(value);
+                    if (parsedValue !== currentValue) {
+                        currentValue = parsedValue;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            function loadFromElement() {
+                const parsedValue = parse(getElementValue());
+                if (parsedValue !== currentValue) {
+                    currentValue = parsedValue;
+                    return true;
+                }
+
+                return false;
+            }
+
+            function updateUrl() {
+                if (hashParam) {
+                    const existingHashValue = getHashParam(hashParam);
+                    const stringifiedCurrentValue = stringify(currentValue);
+
+                    if (!existingHashValue || stringifiedCurrentValue !== existingHashValue) {
+                        setHashParam(hashParam, stringifiedCurrentValue);
+                    }
+                }
+            }
+
+            function updateElement() {
+                if (element) {
+                    const stringifiedCurrentValue = stringify(currentValue);
+                    if (element.nodeName === "INPUT" && element.type === 'checkbox') {
+                        element.checked = element.value === stringifiedCurrentValue;
+                    } else {
+                        //TODO if (getElementValue() !== stringifiedCurrentValue) {
+                            element.value = stringifiedCurrentValue;
+                        //}
+                    }
+                }
+            }
+
+            if (element) {
+                element.addEventListener('input', () => {
+                    if (loadFromElement()) {
+                        updateUrl();
+                        onChange(currentValue);
+                    }
+                });
+            }
+
+            if (hashParam) {
+                window.addEventListener('hashchange', () => {
+                    if (loadFromUrl()) {
+                        updateElement();
+                        onChange(currentValue);
+                    }
+                });
+            }
+
+            if (hashParam && loadFromUrl()) {
+                updateElement();
+            } else if (element) {
+                loadFromElement();
+            }
+
+            return {
+                get: () => currentValue,
+                set: function(value) {
+                    currentValue = value;
+                    updateElement();
+                    updateUrl();
+                    onChange(currentValue);
+                }
+            }
+        }
+    </script>
+
+    <script id="domainFunctions">
+        const rgx = {
+            chord: /(^|(?<=[\s|()-]))(?<root>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)(?<variant>m(6|7)?|m?maj(7|9)?|min(6|7|11)?|dim|aug|7?sus(2|4)?|m?add(9|11)?|M|2|4|5|6|7|9|11|13|°|ø|(♯|#|b|♭)(5|9))?(\/(?<bass>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?))?($|(?=[\s|()-*]))/g,
+            header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
+            fingering: /((\d|x){4,7})/g,
+            brackets: /(\[|\])/g,
+        };
+
+        const noteChart = (function() {
+            const noteDegrees = {
+                'C': 0,
+                'D': 2,
+                'E': 4,
+                'F': 5,
+                'G': 7,
+                'A': 9,
+                'H': 11,
+                'B': 11,
+            };
+
+            const accidentals = {
+                '♯' : 1,
+                '#' : 1,
+                'b' : -1,
+                '♭' : -1,
+            }
+
+            const notes = {};
+            for (accidental of Object.keys(accidentals)) {
+                notes[accidental] = [];
+
+                for (const [key, value] of Object.entries(noteDegrees)) {
+                    notes[accidental][value] = key;
+                }
+
+                for (let i = 0; i < 12; i++) {
+                    if (!notes[accidental][i]) {
+                        notes[accidental][i] = notes[accidental][i - accidentals[accidental]] + accidental;
+                    }
+                }
+            }
+
+            return {noteDegrees, accidentals, notes};
+        })();
 
         function isHeaderLine(line) {
             if (isWhitespace(line)) {
@@ -392,77 +505,34 @@
             return !isChordLine(line) && !isHeaderLine(line) && !isWhitespace(line);
         }
 
-        function encodeHtml(str) {
-            const el = document.createElement('div');
-            el.textContent = str;
-            return el.innerHTML;
-        }
+        function processChord(chord, transpose, capo, preferredAccidental) {
+            function processNote(note) {
+                let degree = noteChart.noteDegrees[note[0]] + (noteChart.accidentals[note[1]] || 0);
 
-        function span(content, clazz) {
-            if (isEmpty(content)) {
-                return "";
-            }
-
-            return `<span class='${clazz}'>${encodeHtml(content)}</span>`;
-        }
-
-        function processChord(chord) {
-            function normalize(note) {
-                const noteDegrees = {
-                    'C': 0,
-                    'D': 2,
-                    'E': 4,
-                    'F': 5,
-                    'G': 7,
-                    'A': 9,
-                    'H': 11,
-                    'B': 11,
-                };
-
-                const accidentals = {
-                    '♯' : 1,
-                    '#' : 1,
-                    'b' : -1,
-                    '♭' : -1,
-                }
-
-                const preferredAccidental = 'b'
-
-                const notes = [];
-                for (const [key, value] of Object.entries(noteDegrees)) {
-                    notes[value] = key;
-                }
-
-                for (let i = 0; i < 12; i++) {
-                    if (!notes[i]) {
-                        notes[i] = notes[i - accidentals[preferredAccidental]] + preferredAccidental;
-                    }
-                }
-
-                let degree = noteDegrees[note[0]] + (accidentals[note[1]] || 0);
+                degree += coalesce(transpose, 0) - coalesce(capo, 0);
 
                 degree %= 12;
                 if (degree < 0) {
                     degree += 12;
                 }
 
-                return notes[degree];
+                return noteChart.notes[coalesce(preferredAccidental, '♯')][degree]; // ♭ b ♯ #
             }
 
-            let result = normalize(chord.root);
+            let result = processNote(chord.root);
 
             if (chord.variant) {
                 result += chord.variant;
             }
 
             if (chord.bass) {
-                result += "/" + normalize(chord.bass);
+                result += "/" + processNote(chord.bass);
             }
 
             return result;
         }
 
-        function spanifyChords(line) {
+        function spanifyChords(line, transpose, capo, preferredAccidental) {
             const chordMatch = line.match(rgx.chord);
             if (!chordMatch || (chordMatch.length < 2 && !isChordLine(line))) {
                 return encodeHtml(line);
@@ -476,7 +546,7 @@
                 let whitespace = chord.whitespace || '';
                 const originalChordLength = match.length - whitespace.length;
 
-                const processedChord = processChord(chord);
+                const processedChord = processChord(chord, transpose, capo, preferredAccidental);
 
                 if (processedChord.length < originalChordLength) {
                     whitespace = ' '.repeat(originalChordLength - processedChord.length) + whitespace;
@@ -489,9 +559,8 @@
             });
         }
 
-        function createLineHtmlElement(line) {
-            const p = document.createElement('p');
-            p.className = 'line';
+        function createLineHtmlElement(line, transpose, capo, preferredAccidental) {
+            const p = createElement('p', 'line');
 
             if (isWhitespace(line)) {
                 p.className += ' empty-line';
@@ -501,47 +570,21 @@
                 p.innerHTML = line.replaceAll(
                     rgx.header,
                     (match, wh1, br1, title, br2, wh2) =>
-                    `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
-                    /* TODO span(wh1, 'wh') +
-                                                          span(br1, 'bracket') +
-                                                          span(title, 'title') +
-                                                          span(br2, 'bracket') +
-                                                          span(wh2, 'wh'));*/
+                        `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
+                        /* TODO span(wh1, 'wh') +
+                                span(br1, 'bracket') +
+                                span(title, 'title') +
+                                span(br2, 'bracket') +
+                                span(wh2, 'wh'));*/
             } else {
-                p.innerHTML = spanifyChords(line);
+                p.innerHTML = spanifyChords(line, transpose, capo, preferredAccidental);
             }
 
             return p;
         }
 
-        function loadTextFromURL() {
-            const title = getHashParam('title');
-            const text = getHashParam('text');
-
-            if (text && inputText.value !== text) {
-                inputText.value = text;
-
-                // Hide controls by default when text is passed via URL
-                controlsVisible = false;
-                controlsWrapper.style.display = 'none';
-                container.classList.add('fullscreen');
-            }
-
-            if (title) {
-                document.title = title;
-            }
-        }
-
-        function updateUrlToMatchInputText() {
-            const existingTextHash = getHashParam('text');
-
-            if (!existingTextHash || inputText.value != existingTextHash) {
-                setHashParam('text', inputText.value);
-            }
-        }
-
-        function parseLines() {
-            const rawLines = inputText.value.split('\n');
+        function parseLines(text) {
+            const rawLines = text.split('\n');
             const result = [];
 
             for (let i = 0; i < rawLines.length; i++) {
@@ -563,75 +606,96 @@
 
             return result;
         }
+    </script>
+
+    <script id="main">
+        const text = bindInputAndHash(document.getElementById('input-text'), 'text', updateContent);
+        const fontSize = bindInputAndHash(document.getElementById('font-size'), 'fontSize', updateContent, toFloat, toString);
+        const transpose = bindInputAndHash(document.getElementById('transpose'), 'transpose', updateContent, toFloat, toString);
+        const capo = bindInputAndHash(document.getElementById('capo'), 'capo', updateContent, toFloat, toString);
+        const preferredAccidental = bindInputAndHash(document.getElementById('preferred-accidental'), 'preferredAccidental', updateContent);
+        const colorful = bindInputAndHash(document.getElementById('colorful'), 'colorful', updateContent, toBoolean, toString);
+        const title = bindInputAndHash(null, 'title', value => document.title = value);
+
+        const contentDiv = document.getElementById('content');
+        const controlsWrapper = document.getElementById('controls-wrapper');
+        const containerDiv = document.querySelector('.container');
+
+        // Hide controls by default when text is passed via URL
+        if (text.get()) {
+            controlsWrapper.style.display = 'none';
+            containerDiv.classList.add('fullscreen');
+        }
+
+        // Initial title
+        document.title = getHashParam('title') || 'Chord Projector';
+
+        // Initialize with content
+        updateContent();
 
         function updateContent() {
-            const lines = parseLines();
-
-            // Clear content
+            console.log("redrawing");
             contentDiv.innerHTML = '';
+            contentDiv.className = colorful.get() ? 'colorful' : '';
 
-            // Set font size
-            document.body.style.fontSize = parseFloat(fontSizeInput.value) + 'px';
+            if (fontSize.get()) {
+                contentDiv.style.fontSize = fontSize.get() + 'px';
+            }
 
-            // Create a temporary element to measure text widths and heights
-            const measureEl = document.createElement('span');
-            measureEl.style.position = 'absolute';
-            measureEl.style.visibility = 'hidden';
-            document.body.appendChild(measureEl);
-
-            // Calculate line metrics (width and height)
-            const lineMetrics = lines.map(line => {
-                const lineHtmlElement = createLineHtmlElement(line);
-
-                measureEl.appendChild(lineHtmlElement);
-                const width = lineHtmlElement.getBoundingClientRect().width;
-                const height = lineHtmlElement.getBoundingClientRect().height;
-                measureEl.removeChild(lineHtmlElement)
-
-                return { width, height, line };
-            });
-
-            // Clean up measurement element
-            document.body.removeChild(measureEl);
-
-            // Available space
-            const availableWidth = contentDiv.clientWidth;
             const availableHeight = contentDiv.clientHeight;
 
-            // Create columns dynamically
+            const lines = parseLines(text.get());
+            const lineElements = lines.map(line => createLineHtmlElement(line, transpose.get(), capo.get(), preferredAccidental.get()));
+
             const columns = [];
             let currentColumn = null;
-            let currentHeight = 0;
 
-            for (let i = 0; i < lineMetrics.length; i++) {
-                const metric = lineMetrics[i];
-                const nextMetric = (i < lineMetrics.length - 1) ? lineMetrics[i + 1] : null;
+            for (let i = 0; i < lines.length; i++) {
+                const line = lines[i];
+                const nextLine = (i < lines.length - 1) ? lines[i + 1] : null;
 
-                // If we don't have a column yet or adding this line would exceed column height,
-                // create a new column (if there's space)
-                if (!currentColumn ||
-                    currentHeight + metric.height > availableHeight ||
-                    (nextMetric && isChordLine(metric.line) && isTextLine(nextMetric.line) &&
-                     currentHeight + metric.height + nextMetric.height > availableHeight)) {
+                const lineElement = lineElements[i];
+                const nextLineElement = (i < lineElements.length - 1) ? lineElements[i + 1] : null;
 
-                    if (isWhitespace(metric.line)) {
+                let lineFitsCurrentColumn = false;
+
+                if (currentColumn) {
+                    currentColumn.div.appendChild(lineElement);
+                    let requiredHeight = lineElement.getBoundingClientRect().height;
+
+                    if (nextLine && isChordLine(line) && isTextLine(nextLine)) {
+                        currentColumn.div.appendChild(nextLineElement);
+                        requiredHeight += nextLineElement.getBoundingClientRect().height;
+                        currentColumn.div.removeChild(nextLineElement);
+                    }
+
+                    lineFitsCurrentColumn = currentColumn.height + requiredHeight <= availableHeight;
+
+                    if (!lineFitsCurrentColumn) {
+                        currentColumn.div.removeChild(lineElement);
+                    } else {
+                        currentColumn.width = Math.max(currentColumn.width, lineElement.getBoundingClientRect().width);
+                        currentColumn.height += lineElement.getBoundingClientRect().height;
+                    }
+                }
+
+                if (!lineFitsCurrentColumn) {
+                    if (isWhitespace(line)) {
                         continue;
                     }
 
-                    currentColumn = {
-                        div: document.createElement('div'),
-                        width: 0,
-                        lines: []
-                    };
-                    currentColumn.div.className = 'column';
-                    columns.push(currentColumn);
-                    currentHeight = 0;
-                }
+                    const newColumnDiv = createElement('div', 'column', {position: 'absolute', visibility: 'hidden'});
+                    contentDiv.appendChild(newColumnDiv);
+                    newColumnDiv.appendChild(lineElement);
 
-                // Add the line to the current column
-                currentColumn.lines.push(metric);
-                currentColumn.width = Math.max(currentColumn.width, metric.width);
-                currentHeight += metric.height;
+                    currentColumn = {
+                        div: newColumnDiv,
+                        width: lineElement.getBoundingClientRect().width,
+                        height: lineElement.getBoundingClientRect().height
+                    };
+
+                    columns.push(currentColumn);
+                }
             }
 
             // Render columns with their content
@@ -639,13 +703,69 @@
                 column.div.style.width = column.width + 'px';
                 column.div.style.marginRight = (i < columns.length - 1) ? '20px' : '0';
 
-                column.lines.forEach(metric => {
-                    const lineHtmlElement = createLineHtmlElement(metric.line);
-                    column.div.appendChild(lineHtmlElement);
-                });
-
-                contentDiv.appendChild(column.div);
+                column.div.style.position = '';
+                column.div.style.visibility = '';
             });
+        }
+    </script>
+
+    <script id="setupEventListeners">
+        window.addEventListener('resize', updateContent);
+
+        // Add keyboard shortcuts
+        document.addEventListener('keydown', function(e) {
+            // Check if any input has focus
+            const anyInputHasFocus = Array.from(document.querySelectorAll('input, textarea'))
+                                          .some(item => document.activeElement === item)
+
+            if (anyInputHasFocus) {
+                return;
+            }
+
+            if (e.key.toLowerCase() === 'h') { // Toggle controls visibility with 'h'
+                if (isDisplayed(controlsWrapper)) {
+                    controlsWrapper.style.display = 'none';
+                    containerDiv.classList.add('fullscreen');
+                } else {
+                    controlsWrapper.style.display = 'flex';
+                    containerDiv.classList.remove('fullscreen');
+                }
+
+                updateContent();
+            } else if (e.key.toLowerCase() === 'n') { // Decrease font size with 'n'
+                const currentSize = fontSize.get();
+                if (currentSize > 8) { // Minimum font size
+                    fontSize.set(currentSize - 0.5);
+                }
+            } else if (e.key.toLowerCase() === 'm') { // Increase font size with 'm'
+                const currentSize = fontSize.get();
+                if (currentSize < 36) { // Maximum font size
+                    fontSize.set(currentSize + 0.5);
+                }
+            }
+        });
+
+        if ("IntersectionObserver" in window && "IntersectionObserverEntry" in window &&
+            "intersectionRatio" in window.IntersectionObserverEntry.prototype) {
+
+            const leftObserver = new IntersectionObserver(entries => {
+                if (entries[0].isIntersecting) {
+                    contentDiv.classList.remove('has-horizontal-overflow-left');
+                } else {
+                    contentDiv.classList.add('has-horizontal-overflow-left');
+                }
+            });
+
+            const rightObserver = new IntersectionObserver(entries => {
+                if (entries[0].isIntersecting) {
+                    contentDiv.classList.remove('has-horizontal-overflow-right');
+                } else {
+                    contentDiv.classList.add('has-horizontal-overflow-right');
+                }
+            });
+
+            leftObserver.observe(document.querySelector("#left-edge-pixel-anchor"));
+            rightObserver.observe(document.querySelector("#right-edge-pixel-anchor"));
         }
     </script>
 </body>
