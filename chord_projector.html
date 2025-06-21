@@ -165,7 +165,7 @@
             padding-right: .13em;
         }
 
-        .colorful p.line .chord {
+        .colorful-chords p.line .chord {
             color: rgb(0, 123, 255);
             background: rgb(240, 248, 255);
         }
@@ -188,11 +188,11 @@
             display:none;
         }
 
-        .colorful p.line.header-line .bracket {
+        .colorful-headers p.line.header-line .bracket {
             display:none;
         }
 
-        .colorful p.line.header-line > span {
+        .colorful-headers p.line.header-line > span {
             background: rgb(142, 68, 173, 0.15);
 
             padding-left: 6px;
@@ -241,8 +241,11 @@
                   <option value="♭">♭ (stylized)</option>
                 </select>
 
-                <label for="colorful">Colorful</label>
-                <input type="checkbox" id="colorful" value="true" checked>
+                <label for="colorful-chords">Colorful chords:</label>
+                <input type="checkbox" id="colorful-chords" value="true" checked>
+
+                <label for="colorful-headers">Colorful headers:</label>
+                <input type="checkbox" id="colorful-headers" value="true" checked>
             </div>
 
             <div class="keyboard-shortcuts">
@@ -350,16 +353,12 @@
 
             let currentValue = parse('');
 
-            function getElementValue() {
-                return element.nodeName === "INPUT" && element.type === 'checkbox' ? (element.checked ? element.value : '') : element.value;
-            }
-
             function loadFromUrl(isInitialLoad) {
                 const value = getHashParam(hashParam);
 
                 if (value != undefined) {
                     const parsedValue = parse(value);
-                    if (parsedValue !== currentValue) {
+                    if (isInitialLoad || parsedValue !== currentValue) {
                         currentValue = parsedValue;
                         return true;
                     }
@@ -369,7 +368,9 @@
             }
 
             function loadFromElement() {
-                const parsedValue = parse(getElementValue());
+                const rawValue = element.nodeName === "INPUT" && element.type === 'checkbox' ? (element.checked ? element.value : '') : element.value;
+                const parsedValue = parse(rawValue);
+
                 if (parsedValue !== currentValue) {
                     currentValue = parsedValue;
                     return true;
@@ -395,9 +396,7 @@
                     if (element.nodeName === "INPUT" && element.type === 'checkbox') {
                         element.checked = element.value === stringifiedCurrentValue;
                     } else {
-                        //TODO if (getElementValue() !== stringifiedCurrentValue) {
-                            element.value = stringifiedCurrentValue;
-                        //}
+                        element.value = stringifiedCurrentValue;
                     }
                 }
             }
@@ -420,7 +419,7 @@
                 });
             }
 
-            if (hashParam && loadFromUrl()) {
+            if (hashParam && loadFromUrl(true)) {
                 updateElement();
             } else if (element) {
                 loadFromElement();
@@ -571,11 +570,6 @@
                     rgx.header,
                     (match, wh1, br1, title, br2, wh2) =>
                         `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
-                        /* TODO span(wh1, 'wh') +
-                                span(br1, 'bracket') +
-                                span(title, 'title') +
-                                span(br2, 'bracket') +
-                                span(wh2, 'wh'));*/
             } else {
                 p.innerHTML = spanifyChords(line, transpose, capo, preferredAccidental);
             }
@@ -614,7 +608,8 @@
         const transpose = bindInputAndHash(document.getElementById('transpose'), 'transpose', updateContent, toFloat, toString);
         const capo = bindInputAndHash(document.getElementById('capo'), 'capo', updateContent, toFloat, toString);
         const preferredAccidental = bindInputAndHash(document.getElementById('preferred-accidental'), 'preferredAccidental', updateContent);
-        const colorful = bindInputAndHash(document.getElementById('colorful'), 'colorful', updateContent, toBoolean, toString);
+        const colorfulChords = bindInputAndHash(document.getElementById('colorful-chords'), 'colorfulChords', updateContent, toBoolean, toString);
+        const colorfulHeaders = bindInputAndHash(document.getElementById('colorful-headers'), 'colorfulHeaders', updateContent, toBoolean, toString);
         const title = bindInputAndHash(null, 'title', value => document.title = value);
 
         const contentDiv = document.getElementById('content');
@@ -628,15 +623,15 @@
         }
 
         // Initial title
-        document.title = getHashParam('title') || 'Chord Projector';
+        document.title = title.get() || 'Chord Projector';
 
         // Initialize with content
         updateContent();
 
         function updateContent() {
-            console.log("redrawing");
             contentDiv.innerHTML = '';
-            contentDiv.className = colorful.get() ? 'colorful' : '';
+            contentDiv.className = colorfulChords.get() ? 'colorful-chords' : '';
+            contentDiv.className += colorfulHeaders.get() ? ' colorful-headers' : '';
 
             if (fontSize.get()) {
                 contentDiv.style.fontSize = fontSize.get() + 'px';
