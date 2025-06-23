@@ -180,8 +180,8 @@
         }
 
         p.line.header-line {
-            padding-top: 17px;
-            padding-bottom: 12px;
+            padding-top: 0.7em;
+            padding-bottom: 0.4em;
         }
 
         p.line.header-line:first-child {
@@ -295,10 +295,7 @@
         }
 
         function toString(value) {
-            if (value == undefined) {
-                return '';
-            }
-            return `${value}`;
+            return value == undefined ? '' : `${value}`;
         }
 
         function toFloat(value) {
@@ -311,11 +308,7 @@
         }
 
         function coalesce(value, defaultValue) {
-            if (value == undefined) {
-                return defaultValue;
-            }
-
-            return value;
+            return value == undefined ? defaultValue : value;
         }
 
         function isDisplayed(element) {
@@ -354,7 +347,7 @@
 
         function span(content, className) {
             if (isEmpty(content)) {
-                return "";
+                return '';
             }
 
             return `<span class='${className}'>${encodeHtml(content)}</span>`;
@@ -381,7 +374,7 @@
             }
 
             function loadFromElement() {
-                const rawValue = element.nodeName === "INPUT" && element.type === 'checkbox' ? (element.checked ? element.value : '') : element.value;
+                const rawValue = element.nodeName === 'INPUT' && element.type === 'checkbox' ? (element.checked ? element.value : '') : element.value;
                 const parsedValue = parse(rawValue);
 
                 if (parsedValue !== currentValue) {
@@ -406,7 +399,7 @@
             function updateElement() {
                 if (element) {
                     const stringifiedCurrentValue = stringify(currentValue);
-                    if (element.nodeName === "INPUT" && element.type === 'checkbox') {
+                    if (element.nodeName === 'INPUT' && element.type === 'checkbox') {
                         element.checked = element.value === stringifiedCurrentValue;
                     } else {
                         element.value = stringifiedCurrentValue;
@@ -452,7 +445,7 @@
 
     <script id="domainFunctions">
         const rgx = {
-            chord: /(^|(?<=[\s|()-]))(?<root>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)(?<variant>m(6|7)?|m?maj(7|9)?|min(6|7|11)?|dim|aug|7?sus(2|4)?|m?add(9|11)?|M|2|4|5|6|7|9|11|13|°|ø|(♯|#|b|♭)(5|9))?(\/(?<bass>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?))?($|(?=[\s|()-*]))/g,
+            chord: /(^|(?<=[\s|()-]))(?<root>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)(?<variant>m(6|7)?|m?maj(7|9)?|min(6|7|11)?|dim|aug|7?sus(2|4)?|m?add(9|11)?|M|2|4|5|6|7|9|11|13|°|ø|7?(♯|#|b|♭)(5|9))?(\/(?<bass>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?))?($|(?=[\s|()-*]))/g,
             header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
             fingering: /((\d|x){4,7})/g,
             brackets: /(\[|\])/g,
@@ -496,11 +489,7 @@
         })();
 
         function isHeaderLine(line) {
-            if (isWhitespace(line)) {
-                return false;
-            }
-
-            return line.match(rgx.header);
+            return !isWhitespace(line) && line.match(rgx.header);
         }
 
         function isChordLine(line) {
@@ -591,19 +580,19 @@
         }
 
         function parseLines(text) {
-            const rawLines = text.split('\n');
+            const lines = text.split('\n');
             const result = [];
 
-            for (let i = 0; i < rawLines.length; i++) {
-                const line = rawLines[i];
-                const previousLine = i > 0 ? rawLines[i - 1] : undefined;
-                const nextLine = i < rawLines.length - 1 ? rawLines[i + 1] : undefined;
-
-                if (isWhitespace(line) && (isHeaderLine(nextLine) || isHeaderLine(previousLine))) {
+            for (let i = 0; i < lines.length; i++) {
+                if (isWhitespace(lines[i]) &&
+                    (isHeaderLine(lines[i + 1]) ||
+                     isHeaderLine(lines[i + 2]) && isWhitespace(lines[i + 1]) ||
+                     isHeaderLine(lines[i - 1] ||
+                     isHeaderLine(lines[i - 2]) && isWhitespace(lines[i - 1])))) {
                     continue;
                 }
 
-                result.push(line.trimEnd()); // Trim whitespace from the end of each line
+                result.push(lines[i].trimEnd()); // Trim whitespace from the end of each line
             };
 
             // Remove empty lines at the end of the text
@@ -660,10 +649,10 @@
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
-                const nextLine = (i < lines.length - 1) ? lines[i + 1] : null;
+                const nextLine = lines[i + 1];
 
                 const lineElement = lineElements[i];
-                const nextLineElement = (i < lineElements.length - 1) ? lineElements[i + 1] : null;
+                const nextLineElement = lineElements[i + 1];
 
                 let lineFitsCurrentColumn = false;
 
@@ -722,7 +711,6 @@
 
         // Add keyboard shortcuts
         document.addEventListener('keydown', function(e) {
-            // Check if any input has focus
             const anyInputHasFocus = Array.from(document.querySelectorAll('input, textarea'))
                                           .some(item => document.activeElement === item)
 
