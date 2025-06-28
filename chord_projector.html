@@ -448,7 +448,7 @@
             chord: /(^|(?<=[\s|()\-]))(?<root>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)(?<variant>(m|min)?(2|4|5|6|7|9|11|13)?((♯|#|b|♭)(5|9))?|(m|min)?7?add(9|11)?|(m|min)?maj(7|9)?|7?sus(2|4)?|dim|aug|M|°|ø)?(\/(?<bass>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?))?($|(?=[\s|()\-*]))/g,
             header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
             fingering: /((\d|x){4,7})/g,
-            brackets: /(\[|\])/g,
+            allowedWithChords: /[\s|%\-*()[\]]/g,
         };
 
         const noteChart = (function() {
@@ -497,7 +497,7 @@
                 return false;
             }
 
-            const allowedWithChords = `([\\s|%-*()]|${rgx.fingering.source}|${rgx.brackets.source})`;
+            const allowedWithChords = `(${rgx.allowedWithChords.source}|${rgx.fingering.source})`;
             const nothingButChordsRegex = new RegExp(`^(${allowedWithChords}*${rgx.chord.source}${allowedWithChords}*)+$`);
             return line.match(nothingButChordsRegex);
         }
