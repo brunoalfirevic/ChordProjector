@@ -527,11 +527,11 @@
             return !isChordLine(line) && !isHeaderLine(line) && !isWhitespace(line);
         }
 
-        function processChord(chord, transpose, capo, preferredAccidental) {
+        function processChord(chord, inferredCapo, transpose, capo, preferredAccidental) {
             function processNote(note) {
                 let degree = noteChart.noteDegrees[note[0]] + (noteChart.accidentals[note[1]] || 0);
 
-                degree += coalesce(transpose, 0) - coalesce(capo, 0);
+                degree += coalesce(transpose, 0) - coalesce(capo, 0) + inferredCapo;
 
                 degree %= 12;
                 if (degree < 0) {
@@ -554,7 +554,7 @@
             return result;
         }
 
-        function spanifyChords(line, transpose, capo, preferredAccidental) {
+        function spanifyChords(line, inferredCapo, transpose, capo, preferredAccidental) {
             const chordMatch = line.match(rgx.chord);
             if (!chordMatch || (chordMatch.length < 2 && !isChordLine(line))) {
                 return encodeHtml(line);
@@ -568,7 +568,7 @@
                 let whitespace = chord.whitespace || '';
                 const originalChordLength = match.length - whitespace.length;
 
-                const processedChord = processChord(chord, transpose, capo, preferredAccidental);
+                const processedChord = processChord(chord, inferredCapo, transpose, capo, preferredAccidental);
 
                 if (processedChord.length < originalChordLength) {
                     whitespace = ' '.repeat(originalChordLength - processedChord.length) + whitespace;
@@ -581,7 +581,7 @@
             });
         }
 
-        function createLineHtmlElement(line, transpose, capo, preferredAccidental) {
+        function createLineHtmlElement(line, inferredCapo, transpose, capo, preferredAccidental) {
             const p = createElement('p', 'line');
 
             if (isWhitespace(line)) {
@@ -594,7 +594,7 @@
                     (match, wh1, br1, title, br2, wh2) =>
                         `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
             } else {
-                p.innerHTML = spanifyChords(line, transpose, capo, preferredAccidental);
+                p.innerHTML = spanifyChords(line, inferredCapo, transpose, capo, preferredAccidental);
             }
 
             return p;
@@ -606,7 +606,7 @@
             for (let i = 0; i < lines.length; i++) {
                 const capoMetadata = matchFirst(rgx.capoMetadata, lines[i]);
                 if (capoMetadata) {
-                    return coalesce(capoMetadata.groups.capo, 0);
+                    return coalesce(toFloat(capoMetadata.groups.capo), 0);
                 }
 
                 if (!isWhitespace(lines[i])) {
@@ -677,12 +677,17 @@
                 contentDiv.style.fontSize = fontSize.get() + 'px';
             }
 
-            capo.setSilentlyIfNotInUrl(inferCapo(text.get()));
+            const inferredCapo = inferCapo(text.get());
+            capo.setSilentlyIfNotInUrl(inferredCapo);
 
             const availableHeight = contentDiv.clientHeight;
 
             const lines = parseLines(text.get());
-            const lineElements = lines.map(line => createLineHtmlElement(line, transpose.get(), capo.get(), preferredAccidental.get()));
+            const lineElements = lines.map(line => createLineHtmlElement(line,
+                                                                         inferredCapo,
+                                                                         transpose.get(),
+                                                                         capo.get(),
+                                                                         preferredAccidental.get()));
 
             const columns = [];
             let currentColumn = null;
