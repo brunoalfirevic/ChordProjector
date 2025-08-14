@@ -478,8 +478,9 @@
             chord: /(^|(?<=[\s|()\-]))(?<root>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)(?<variant>(m|min)?(2|4|5|6|7|9|11|13)?((♯|#|b|♭)(5|9))?|(m|min)?7?add(9|11|13)?|(m|min)?maj(7|9|11|13)?|(maj7|7)?sus(2|4)?|dim|aug|M|°|ø)?(\/(?<bass>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?))?($|(?=[\s|()\-*]))/g,
             header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
             fingering: /((\d|x){4,7})/g,
-            allowedWithChords: /[\s|%*()[\]]/g,
-            capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi
+            allowedWithChords: /[\s|%*()\-[\]]/g,
+            capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi,
+            tab: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-()~\dhpx]+\|$/gi
         };
 
         const noteChart = (function() {
@@ -523,8 +524,12 @@
             return !isWhitespace(line) && line.match(rgx.header);
         }
 
+        function isTabLine(line) {
+            return line.match(rgx.tab);
+        }
+
         function isChordLine(line) {
-            if (isWhitespace(line)) {
+            if (isWhitespace(line) || isTabLine(line)) {
                 return false;
             }
 
