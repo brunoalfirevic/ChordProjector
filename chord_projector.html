@@ -323,6 +323,19 @@
             return str == undefined || str.trim() === '';
         }
 
+        function matchFirst(regex, str) {
+            if (str == undefined) {
+                return undefined;
+            }
+
+            const matches = Array.from(str.matchAll(regex));
+            if (matches.length == 0) {
+                return undefined;
+            }
+
+            return matches[0];
+        }
+
         function createElement(element, className, style) {
             const el = document.createElement(element);
 
@@ -359,12 +372,12 @@
 
             let currentValue = parse('');
 
-            function loadFromUrl(isInitialLoad) {
+            function loadFromUrl() {
                 const value = getHashParam(hashParam);
 
                 if (value != undefined) {
                     const parsedValue = parse(value);
-                    if (isInitialLoad || parsedValue !== currentValue) {
+                    if (parsedValue !== currentValue) {
                         currentValue = parsedValue;
                         return true;
                     }
@@ -425,7 +438,8 @@
                 });
             }
 
-            if (hashParam && loadFromUrl(true)) {
+            if (hashParam && getHashParam(hashParam) != undefined) {
+                loadFromUrl();
                 updateElement();
             } else if (element) {
                 loadFromElement();
@@ -438,6 +452,12 @@
                     updateElement();
                     updateUrl();
                     onChange(currentValue);
+                },
+                setSilentlyIfNotInUrl: function(value) {
+                    if (!(hashParam && getHashParam(hashParam) != undefined)) {
+                        currentValue = value;
+                        updateElement();
+                    }
                 }
             }
         }
@@ -449,6 +469,7 @@
             header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
             fingering: /((\d|x){4,7})/g,
             allowedWithChords: /[\s|%\-*()[\]]/g,
+            capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi
         };
 
         const noteChart = (function() {
@@ -579,6 +600,23 @@
             return p;
         }
 
+        function inferCapo(text) {
+            const lines = text.split('\n');
+
+            for (let i = 0; i < lines.length; i++) {
+                const capoMetadata = matchFirst(rgx.capoMetadata, lines[i]);
+                if (capoMetadata) {
+                    return coalesce(capoMetadata.groups.capo, 0);
+                }
+
+                if (!isWhitespace(lines[i])) {
+                    break;
+                }
+            }
+
+            return 0;
+        }
+
         function parseLines(text) {
             const lines = text.split('\n');
             const result = [];
@@ -638,6 +676,8 @@
             if (fontSize.get()) {
                 contentDiv.style.fontSize = fontSize.get() + 'px';
             }
+
+            capo.setSilentlyIfNotInUrl(inferCapo(text.get()));
 
             const availableHeight = contentDiv.clientHeight;
 
