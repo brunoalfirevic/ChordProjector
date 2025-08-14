@@ -625,8 +625,8 @@
                 if (isWhitespace(lines[i]) &&
                     (isHeaderLine(lines[i + 1]) ||
                      isHeaderLine(lines[i + 2]) && isWhitespace(lines[i + 1]) ||
-                     isHeaderLine(lines[i - 1] ||
-                     isHeaderLine(lines[i - 2]) && isWhitespace(lines[i - 1])))) {
+                     isHeaderLine(lines[i - 1]) ||
+                     isHeaderLine(lines[i - 2]) && isWhitespace(lines[i - 1]))) {
                     continue;
                 }
 
