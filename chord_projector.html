@@ -374,6 +374,58 @@
             return `<span class='${className}'>${encodeHtml(content)}</span>`;
         }
 
+        function rgx(optionArg, ...args) {
+            if (typeof optionArg === 'string' || optionArg instanceof String) {
+                return createRegex({name: optionArg}, args);
+            } else if (optionArg instanceof RegExp) {
+                return createRegex({}, [optionArg, ...args]);
+            } else if (typeof optionArg === 'object') {
+                return createRegex(optionArg, args);
+            } else {
+                throw new Error("Unsupported type of option parameter");
+            }
+
+            function createRegex(options, regexes) {
+                let regexStr = regexes.length === 1 ? processRegex(regexes[0]).source
+                                                    : regexes.map(regex => `(${processRegex(regex).source})`)
+                                                             .join('');
+
+                if (options.name || options.optional || options.repeat) {
+                    if (options.name) {
+                        regexStr = `(?<${options.name}>${regexStr})`;
+                    } else {
+                        regexStr = `(${regexStr})`;
+                    }
+
+                    if (options.repeat) {
+                        if (options.optional) {
+                            regexStr += "*";
+                        } else {
+                            regexStr += "+";
+                        }
+                    } else if (options.optional) {
+                        regexStr += "?";
+                    }
+                }
+
+                return new RegExp(regexStr, options.flags);
+            }
+
+            function createDisjunction(regexArray) {
+                return new RegExp(regexArray.map(regex => processRegex(regex).source).join('|'));
+            }
+
+            function processRegex(regex) {
+                if (regex instanceof RegExp) {
+                    return regex;
+                } else if (Array.isArray(regex)) {
+                    return createDisjunction(regex);
+                } else {
+                    throw new Error("Only regexes and arrays are supported");
+                }
+            }
+        }
+
         function bindInputAndHash(element, hashParam, onChange, parse, stringify) {
             parse = parse || (value => value);
             stringify = stringify || (value => value);
@@ -474,8 +526,22 @@
     </script>
 
     <script id="domainFunctions">
-        const rgx = {
-            chord: /(^|(?<=[\s|()\-]))(?<root>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)(?<variant>(m|min)?(2|4|5|6|7|9|11|13)?((♯|#|b|♭)(5|9))?|(m|min)?7?add(9|11|13)?|(m|min)?maj(7|9|11|13)?|(maj7|7)?sus(2|4)?|dim|aug|M|°|ø)?(\/(?<bass>(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?))?($|(?=[\s|()\-*]))/g,
+        const regexes = {
+            chord: rgx({flags: "g"},
+                       /^|(?<=[\s|()\-])/,
+                       [/N\.C\./,
+                        rgx(
+                            rgx("root", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/),
+                            rgx({name: "variant", optional: true}, [
+                                /(m|min)?(2|4|5|6|7|9|11|13)?((♯|#|b|♭)(5|9))?/,
+                                /(m|min)?7?add(9|11|13)?|(m|min)?maj(7|9|11|13)?/,
+                                /(maj7|M7|7)?sus(2|4)?/,
+                                /dim|aug|M|°|ø/
+                            ]),
+                            rgx({optional: true}, /\//, rgx("bass", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/)))
+                        ],
+                        /$|(?=[\s|()\-*])/),
+
             header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
             fingering: /((\d|x){4,7})/g,
             allowedWithChords: /[\s|%*()\-[\]]/g,
@@ -521,11 +587,11 @@
         })();
 
         function isHeaderLine(line) {
-            return !isWhitespace(line) && line.match(rgx.header);
+            return !isWhitespace(line) && line.match(regexes.header);
         }
 
         function isTabLine(line) {
-            return line.match(rgx.tab);
+            return line.match(regexes.tab);
         }
 
         function isChordLine(line) {
@@ -533,8 +599,13 @@
                 return false;
             }
 
-            const allowedWithChords = `(${rgx.allowedWithChords.source}|${rgx.fingering.source})`;
-            const nothingButChordsRegex = new RegExp(`^(${allowedWithChords}*${rgx.chord.source}${allowedWithChords}*)+$`);
+            const allowedWithChords = rgx({repeat: true, optional: true}, [regexes.allowedWithChords, regexes.fingering]);
+            const nothingButChordsRegex = rgx(/^/,
+                                              allowedWithChords,
+                                              rgx({optional: false, repeat: true},
+                                                  regexes.chord,
+                                                  allowedWithChords),
+                                              /$/);
             return line.match(nothingButChordsRegex);
         }
 
@@ -556,6 +627,10 @@
                 return noteChart.notes[coalesce(preferredAccidental, '♯')][degree]; // ♭ b ♯ #
             }
 
+            if (!chord.root) {
+                return "N.C.";
+            }
+
             let result = processNote(chord.root);
 
             if (chord.variant) {
@@ -570,12 +645,12 @@
         }
 
         function spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental) {
-            const chordMatch = line.match(rgx.chord);
+            const chordMatch = line.match(regexes.chord);
             if (!chordMatch || (chordMatch.length < 2 && !isChordLine(line))) {
                 return encodeHtml(line);
             }
 
-            const chordWithWhitespace = new RegExp(`${rgx.chord.source}(?<whitespace>\\s*)`, "g");
+            const chordWithWhitespace = new RegExp(`${regexes.chord.source}(?<whitespace>\\s*)`, "g");
 
             return line.replaceAll(chordWithWhitespace, (match, ...args) => {
                 const chord = args.at(-1);
@@ -605,7 +680,7 @@
             } else if (isHeaderLine(line)) {
                 p.className += ' header-line';
                 p.innerHTML = line.replaceAll(
-                    rgx.header,
+                    regexes.header,
                     (match, wh1, br1, title, br2, wh2) =>
                         `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
             } else {
@@ -619,7 +694,7 @@
             const lines = text.split('\n');
 
             for (let i = 0; i < lines.length; i++) {
-                const capoMetadata = matchFirst(rgx.capoMetadata, lines[i]);
+                const capoMetadata = matchFirst(regexes.capoMetadata, lines[i]);
                 if (capoMetadata) {
                     return coalesce(toFloat(capoMetadata.groups.capo), 0);
                 }
