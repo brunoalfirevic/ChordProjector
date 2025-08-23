@@ -267,6 +267,9 @@
 
                 <label for="colorful-headers">Colorful headers:</label>
                 <input type="checkbox" id="colorful-headers" value="true" checked>
+
+                <label for="padding">Padding:</label>
+                <input class="whole-number" type="number" id="padding" min="0" max="99" step="5" value="0">
             </div>
 
             <div class="keyboard-shortcuts">
@@ -742,6 +745,7 @@
         const colorfulChords = bindInputAndHash(document.getElementById('colorful-chords'), 'colorfulChords', updateContent, toBoolean, toString);
         const colorfulHeaders = bindInputAndHash(document.getElementById('colorful-headers'), 'colorfulHeaders', updateContent, toBoolean, toString);
         const title = bindInputAndHash(null, 'title', value => document.title = value);
+        const padding = bindInputAndHash(document.getElementById('padding'), null, updateContent, toFloat, toString);
 
         const contentDiv = document.getElementById('content');
         const controlsWrapper = document.getElementById('controls-wrapper');
@@ -760,6 +764,8 @@
         updateContent();
 
         function updateContent() {
+            containerDiv.style.padding = padding.get() + 'px';
+
             contentDiv.innerHTML = '';
             contentDiv.className = colorfulChords.get() ? 'colorful-chords' : '';
             contentDiv.className += colorfulHeaders.get() ? ' colorful-headers' : '';
