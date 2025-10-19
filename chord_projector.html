@@ -239,7 +239,7 @@
         <div class="controls-container">
             <div class="controls">
                 <label for="font-size">Font size (px):</label>
-                <input type="number" id="font-size" min="8" max="36" value="15" step="0.5">
+                <input type="number" id="font-size" min="8" max="36" value="15" step="0.2">
 
                 <label for="preferred-accidental">Preferred accidental:</label>
                 <select id="preferred-accidental">
@@ -532,22 +532,25 @@
         const regexes = {
             chord: rgx({flags: "g"},
                        /^|(?<=[\s|()\-])/,
+                       rgx({name: "prefix", optional: true}, /⁺|•/),
                        [/N\.C\./,
                         rgx(
                             rgx("root", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/),
                             rgx({name: "variant", optional: true}, [
-                                /(m|min)?(2|4|5|6|7|9|11|13)?((♯|#|b|♭)(5|9))?/,
-                                /(m|min)?7?add(9|11|13)?|(m|min)?maj(7|9|11|13)?/,
                                 /(maj7|M7|7)?sus(2|4)?/,
-                                /dim|aug|M|°|ø/
+                                /dim|aug|M|°|ø/,
+                                rgx(/(m|min)?/,
+                                    /(2|4|5|6|((maj|M)?(7|9|11|13)))?/,
+                                    /((♯|#|b|♭)(5|9)|add(♯|#|b|♭)?(9|11|13))?/),
                             ]),
                             rgx({optional: true}, /\//, rgx("bass", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/)))
                         ],
+                        rgx({name: "suffix", optional: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺/),
                         /$|(?=[\s|()\-*,])/),
 
             header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
             fingering: /((\d|x){4,7})/g,
-            allowedWithChords: /[\s|%*()\-[\]]/g,
+            allowedWithChords: /\([^()]+\)|[\s|%*()\-[\]]/g,
             capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi,
             tab: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/gi
         };
@@ -631,7 +634,7 @@
             }
 
             if (!chord.root) {
-                return "N.C.";
+                return (chord.prefix ?? "") +  "N.C." + (chord.suffix ?? "");
             }
 
             let result = processNote(chord.root);
@@ -644,7 +647,7 @@
                 result += "/" + processNote(chord.bass);
             }
 
-            return result;
+            return (chord.prefix ?? "") + result + (chord.suffix ?? "");
         }
 
         function spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental) {
@@ -875,12 +878,12 @@
             } else if (e.key.toLowerCase() === 'n') { // Decrease font size with 'n'
                 const currentSize = fontSize.get();
                 if (currentSize > 8) { // Minimum font size
-                    fontSize.set(currentSize - 0.5);
+                    fontSize.set(currentSize - 0.2);
                 }
             } else if (e.key.toLowerCase() === 'm') { // Increase font size with 'm'
                 const currentSize = fontSize.get();
                 if (currentSize < 36) { // Maximum font size
-                    fontSize.set(currentSize + 0.5);
+                    fontSize.set(currentSize + 0.2);
                 }
             }
         });
