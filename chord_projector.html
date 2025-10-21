@@ -109,7 +109,7 @@
 
         .column {
             height: 100%;
-            margin-right: 20px; /* Default gap, will be controlled by JS */
+            margin-right: 20px;
             position: relative;
             padding-right: 10px;
             flex-shrink: 0; /* Prevent columns from shrinking */
@@ -156,7 +156,7 @@
             padding-right: 0;
         }
 
-        p.line {
+        .line {
             font-family: 'Roboto Mono', 'Courier New', monospace;
             line-height: 1.3; /* Tighter line spacing */
             margin: 0;
@@ -165,13 +165,13 @@
             text-overflow: clip; /* Clips text that doesn't fit */
         }
 
-        p.line.empty-line {
+        .line.empty-line {
             line-height: 1;
         }
 
-        p.line .chord {
+        .line .chord {
             font-weight: 700;
-            background: rgba(0,0,0,0.09);
+            background-color: rgb(232, 232, 232);
             border-radius: 3px;
             margin-left: -.13em;
             padding-left: .13em;
@@ -179,40 +179,41 @@
             padding-right: .13em;
         }
 
-        .colorful-chords p.line .chord {
+        .colorful-chords .line .chord {
             color: rgb(0, 123, 255);
-            background: rgb(240, 248, 255);
+            background-color: rgb(240, 248, 255);
         }
 
-        p.line.header-line {
-            padding-top: 0.7em;
+        .line.header-line {
+            padding-top: 0.8em;
             padding-bottom: 0.4em;
         }
 
-        p.line.header-line:first-child {
+        .line.header-line:first-child {
             padding-top: 0px !important;
         }
 
-        p.line.header-line > span {
-            background: rgba(0,0,0,0.09);
+        .line.header-line > span {
+            background-color: rgb(232, 232, 232);
             border-radius: 5px;
         }
 
-        p.line.header-line .wh {
+        .line.header-line .wh {
             display:none;
         }
 
-        .colorful-headers p.line.header-line .bracket {
-            display:none;
+        .colorful-headers .line.header-line > span {
+            background-color: rgb(238, 229, 242);
         }
 
-        .colorful-headers p.line.header-line > span {
-            background: rgb(142, 68, 173, 0.15);
-
-            padding-left: 6px;
-            padding-right: 5px;
+        .colorful-headers .line.header-line .title {
             font-size: 0.98em;
             letter-spacing: 1px;
+        }
+
+        .colorful-headers .line.header-line .bracket {
+            font-size: 0.6em;
+            color: rgb(232, 232, 232);
         }
 
         #left-edge-pixel-anchor {
@@ -220,6 +221,7 @@
             height: 1px;
             top: 0;
             left: 0;
+            user-select: none;
         }
 
         #right-edge-pixel-anchor {
@@ -227,6 +229,7 @@
             height: 1px;
             top: 0;
             right: 0;
+            user-select: none;
         }
     </style>
 </head>
@@ -239,7 +242,7 @@
         <div class="controls-container">
             <div class="controls">
                 <label for="font-size">Font size (px):</label>
-                <input type="number" id="font-size" min="8" max="36" value="15" step="0.2">
+                <input type="number" id="font-size" min="8" max="20" value="15" step="0.2">
 
                 <label for="preferred-accidental">Preferred accidental:</label>
                 <select id="preferred-accidental">
@@ -309,6 +312,10 @@
             return value == undefined ? '' : `${value}`;
         }
 
+        function floatToString(value, precision) {
+            return value == undefined ? '' : value.toFixed(precision);
+        }
+
         function toFloat(value) {
             const result = parseFloat(value);
             return isNaN(result) ? undefined : result;
@@ -347,8 +354,8 @@
             return matches[0];
         }
 
-        function createElement(element, className, style) {
-            const el = document.createElement(element);
+        function createElement(elementName, className, style) {
+            const el = document.createElement(elementName);
 
             if (className) {
                 el.className = className;
@@ -361,6 +368,30 @@
             }
 
             return el;
+        }
+
+        function changeHtmlElement(element, newElementName) {
+            const result = createElement(newElementName, element.className);
+
+            for (const attr of element.attributes) {
+                result.setAttributeNS(null, attr.name, attr.value)
+            }
+
+            while (element.firstChild) {
+                result.appendChild(element.firstChild)
+            }
+
+            element.replaceWith(result);
+            return result;
+        }
+
+        function elementSize(element) {
+            const boundingRect = element.getBoundingClientRect();
+
+            return {
+                width: boundingRect.width,
+                height: boundingRect.height
+            }
         }
 
         function encodeHtml(str) {
@@ -515,6 +546,10 @@
                     updateElement();
                     updateUrl();
                     onChange(currentValue);
+                },
+                setElementValueSilently: function(value) {
+                    currentValue = value;
+                    updateElement();
                 },
                 setSilentlyIfNotInUrl: function(value) {
                     if (!(hashParam && getHashParam(hashParam) != undefined)) {
@@ -677,23 +712,25 @@
             });
         }
 
-        function createLineHtmlElement(line, capoAsWritten, transpose, capo, preferredAccidental) {
-            const p = createElement('p', 'line');
-
+        function createLineHtmlElement(line, nextLine, capoAsWritten, transpose, capo, preferredAccidental) {
             if (isWhitespace(line)) {
-                p.className += ' empty-line';
-                p.innerHTML = '&nbsp;';
+                const element = createElement('div', 'line');
+                element.className += ' empty-line';
+                element.innerHTML = '&nbsp;';
+                return element;
             } else if (isHeaderLine(line)) {
-                p.className += ' header-line';
-                p.innerHTML = line.replaceAll(
+                const element = createElement('div', 'line');
+                element.className += ' header-line';
+                element.innerHTML = line.replaceAll(
                     regexes.header,
                     (match, wh1, br1, title, br2, wh2) =>
                         `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
+                return element;
             } else {
-                p.innerHTML = spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental);
+                const element = isHeaderLine(nextLine) ? createElement('p', 'line') : createElement('div', 'line');
+                element.innerHTML = spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental);
+                return element;
             }
-
-            return p;
         }
 
         function inferCapo(text) {
@@ -740,7 +777,7 @@
 
     <script id="main">
         const text = bindInputAndHash(document.getElementById('input-text'), 'text', updateContent);
-        const fontSize = bindInputAndHash(document.getElementById('font-size'), 'fontSize', updateContent, toFloat, toString);
+        const fontSize = bindInputAndHash(document.getElementById('font-size'), 'fontSize', updateContent, toFloat, v => floatToString(v, 1));
         const transpose = bindInputAndHash(document.getElementById('transpose'), 'transpose', updateContent, toFloat, toString);
         const capo = bindInputAndHash(document.getElementById('capo'), 'capo', updateContent, toFloat, toString);
         const capoAsWritten = bindInputAndHash(document.getElementById('capoAsWritten'), 'capoAsWritten', updateContent, toFloat, toString);
@@ -754,17 +791,51 @@
         const controlsWrapper = document.getElementById('controls-wrapper');
         const containerDiv = document.querySelector('.container');
 
+        // Initial title
+        document.title = title.get() || 'Chord Projector';
+
         // Hide controls by default when text is passed via URL
         if (text.get()) {
             controlsWrapper.style.display = 'none';
             containerDiv.classList.add('fullscreen');
         }
 
-        // Initial title
-        document.title = title.get() || 'Chord Projector';
+        if (text.get() && getHashParam('fontSize') == undefined) {
+            updateContentAndFitToScreen();
+        }
+        else {
+            updateContent();
+        }
 
-        // Initialize with content
-        updateContent();
+        function updateContentAndFitToScreen() {
+            const defaultSize = fontSize.get();
+
+            const fontSizes = [];
+            for (let size = 8, i = 0; size <= 20; size += 0.2, i++) {
+                fontSizes[i] = size;
+            }
+
+            let low = 0;
+            let high = fontSizes.length - 1;
+            let highestFit = 0;
+
+            while (low <= high) {
+                const i = Math.floor((low + high) / 2);
+                fontSize.setElementValueSilently(fontSizes[i]);
+
+                if (updateContent()) { // updateContent returns true if it fits
+                    low = i + 1;
+                    if (fontSizes[i] > highestFit) {
+                        highestFit = fontSizes[i];
+                    }
+                } else {
+                    high = i - 1;
+                }
+            }
+
+            fontSize.setElementValueSilently(highestFit > 0 ? highestFit : defaultSize);
+            updateContent();
+        }
 
         function updateContent() {
             containerDiv.style.padding = padding.get() + 'px';
@@ -783,13 +854,15 @@
             }
 
             const availableHeight = contentDiv.clientHeight;
+            const availableWidth = containerDiv.clientWidth;
 
             const lines = parseLines(text.get());
-            const lineElements = lines.map(line => createLineHtmlElement(line,
-                                                                         capoAsWritten.get(),
-                                                                         transpose.get(),
-                                                                         capo.get(),
-                                                                         preferredAccidental.get()));
+            const lineElements = lines.map((line, i) => createLineHtmlElement(line,
+                                                                              lines[i+1],
+                                                                              capoAsWritten.get(),
+                                                                              transpose.get(),
+                                                                              capo.get(),
+                                                                              preferredAccidental.get()));
 
             const columns = [];
             let currentColumn = null;
@@ -805,11 +878,11 @@
 
                 if (currentColumn) {
                     currentColumn.div.appendChild(lineElement);
-                    let requiredHeight = lineElement.getBoundingClientRect().height;
+                    let requiredHeight = elementSize(lineElement).height;
 
                     if (nextLine && isChordLine(line) && isTextLine(nextLine)) {
                         currentColumn.div.appendChild(nextLineElement);
-                        requiredHeight += nextLineElement.getBoundingClientRect().height;
+                        requiredHeight += elementSize(nextLineElement).height;
                         currentColumn.div.removeChild(nextLineElement);
                     }
 
@@ -817,9 +890,14 @@
 
                     if (!lineFitsCurrentColumn) {
                         currentColumn.div.removeChild(lineElement);
+                        if (isWhitespace(line) && currentColumn.div.lastChild) {
+                            // we change the type of last element in column to <p>
+                            // so that it includes a newline when copy pasted
+                            changeHtmlElement(currentColumn.div.lastChild, "p");
+                        }
                     } else {
-                        currentColumn.width = Math.max(currentColumn.width, lineElement.getBoundingClientRect().width);
-                        currentColumn.height += lineElement.getBoundingClientRect().height;
+                        currentColumn.width = Math.max(currentColumn.width, elementSize(lineElement).width);
+                        currentColumn.height += elementSize(lineElement).height;
                     }
                 }
 
@@ -834,8 +912,8 @@
 
                     currentColumn = {
                         div: newColumnDiv,
-                        width: lineElement.getBoundingClientRect().width,
-                        height: lineElement.getBoundingClientRect().height
+                        width: elementSize(lineElement).width,
+                        height: elementSize(lineElement).height
                     };
 
                     columns.push(currentColumn);
@@ -845,11 +923,11 @@
             // Render columns with their content
             columns.forEach((column, i) => {
                 column.div.style.width = column.width + 'px';
-                column.div.style.marginRight = (i < columns.length - 1) ? '20px' : '0';
-
                 column.div.style.position = '';
                 column.div.style.visibility = '';
             });
+
+            return elementSize(contentDiv).width <= availableWidth;
         }
     </script>
 
