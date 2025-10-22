@@ -29,6 +29,10 @@
             gap: 20px;
         }
 
+        .fullscreen .controls-wrapper {
+            display: none;
+        }
+
         .text-input-container {
             flex: 2; /* Takes 2/3 of the space */
         }
@@ -99,7 +103,7 @@
             overflow-y: hidden; /* No vertical scrolling */
         }
 
-        .content-container.fullscreen {
+        .fullscreen .content-container {
             border: none;
         }
 
@@ -233,7 +237,7 @@
     </style>
 </head>
 <body>
-    <div class="controls-wrapper" id="controls-wrapper">
+    <div id="controls-wrapper" class="controls-wrapper">
         <div class="text-input-container">
             <textarea id="input-text" placeholder="Enter your text here..."></textarea>
         </div>
@@ -283,7 +287,7 @@
         </div>
     </div>
 
-    <div class="content-wrapper" id="content-wrapper">
+    <div id="content-wrapper" class="content-wrapper">
         <div id="content-container" class="content-container">
             <div id="left-edge-pixel-anchor"></div>
             <div id="content"></div>
@@ -406,7 +410,7 @@
         }
 
         function isDisplayed(element) {
-            return element.style.display !== 'none';
+            return window.getComputedStyle(element).display !== 'none';
         }
 
         function isEmpty(str) {
@@ -546,10 +550,7 @@
             }
         }
 
-        function bindInputAndHash(element, hashParam, cookieStorageName, onChange, parse, stringify) {
-            parse = parse || (value => value);
-            stringify = stringify || (value => value);
-
+        function bindInputAndHash(element, hashParam, cookieStorageName, onChange, parse = (value => value), stringify = (value => value)) {
             let currentValue = parse('');
 
             function loadFromUrl() {
@@ -920,15 +921,11 @@
         document.title = title.get() || 'Chord Projector';
 
         // Hide controls by default when text is passed via URL
-        if (text.get()) {
-            controlsWrapper.style.display = 'none';
-            containerDiv.classList.add('fullscreen');
-        }
+        applyClass(document.body, text.get(), 'fullscreen');
 
         if (text.get() && getHashParam('fontSize') == undefined) {
             updateContentAndFitToScreen();
-        }
-        else {
+        } else {
             updateContent();
         }
 
@@ -980,7 +977,7 @@
             }
 
             const availableHeight = elementSize(contentDiv, {includePadding: false, includeMargin: false}).height;
-            const availableWidth = elementSize(containerDiv, {includePadding: false, includeMargin: false}).width;
+            const availableWidth = elementSize(containerDiv, {includePadding: false, includeMargin: false}).width - 2; // for edge anchors
 
             const lines = parseLines(text.get());
             const lineElements = lines.map((line, i) => createLineHtmlElement(line,
@@ -1015,7 +1012,6 @@
                     lineFitsCurrentColumn = currentColumn.height + requiredHeight <= availableHeight;
 
                     if (!lineFitsCurrentColumn) {
-
                         if (isWhitespace(line)) {
                             lineElement.classList.add('overflow-y-hidden');
                         } else {
@@ -1070,14 +1066,7 @@
             }
 
             if (e.key.toLowerCase() === 'h') { // Toggle controls visibility with 'h'
-                if (isDisplayed(controlsWrapper)) {
-                    controlsWrapper.style.display = 'none';
-                    containerDiv.classList.add('fullscreen');
-                } else {
-                    controlsWrapper.style.display = 'flex';
-                    containerDiv.classList.remove('fullscreen');
-                }
-
+                applyClass(document.body, isDisplayed(controlsWrapper), 'fullscreen');
                 updateContent();
             } else if (e.key.toLowerCase() === 'n') { // Decrease font size with 'n'
                 const currentSize = fontSize.get();
@@ -1092,16 +1081,15 @@
             }
         });
 
-        if ("IntersectionObserver" in window && "IntersectionObserverEntry" in window &&
+        if ("IntersectionObserver" in window &&
+            "IntersectionObserverEntry" in window &&
             "intersectionRatio" in window.IntersectionObserverEntry.prototype) {
-            const leftObserver = new IntersectionObserver(
-                entries => applyClass(containerDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-left'));
 
-            const rightObserver = new IntersectionObserver(
-                entries => applyClass(containerDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-right'));
+            new IntersectionObserver(entries => applyClass(containerDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-left'))
+                .observe(document.querySelector("#left-edge-pixel-anchor"));
 
-            leftObserver.observe(document.querySelector("#left-edge-pixel-anchor"));
-            rightObserver.observe(document.querySelector("#right-edge-pixel-anchor"));
+            new IntersectionObserver(entries => applyClass(containerDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-right'))
+                .observe(document.querySelector("#right-edge-pixel-anchor"))
         }
     </script>
 </body>
