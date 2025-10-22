@@ -86,12 +86,14 @@
 
         .container {
             flex: 1;
+            display: flex;
+            position: relative;
             width: 100%;
             box-sizing: border-box;
-            overflow: hidden; /* Prevents scrolling */
             margin-top: 10px;
             border: 1px solid #ddd;
-            position: relative;
+            overflow-x: auto; /* Allow horizontal scrolling */
+            overflow-y: hidden; /* No vertical scrolling */
         }
 
         .container.fullscreen {
@@ -99,24 +101,16 @@
             border: none;
         }
 
-        .multi-column {
-            width: 100%;
-            height: 100%;
-            display: flex;
-            overflow-x: auto; /* Allow horizontal scrolling */
-            overflow-y: hidden; /* No vertical scrolling */
-        }
-
         #content {
             display: flex;
+            flex-shrink: 0;
         }
 
         .column {
-            height: 100%;
-            margin-right: 20px;
+            flex-shrink: 0;
             position: relative;
+            margin-right: 20px;
             padding-right: 10px;
-            flex-shrink: 0; /* Prevent columns from shrinking */
         }
 
         .has-horizontal-overflow-right::after {
@@ -125,7 +119,7 @@
             top: 0;
             bottom: 0;
             right: 0px;
-            width: 20px;
+            width: 25px;
             background: linear-gradient(.25turn, transparent, rgba(255,0,0,0.1) 40%, rgba(255,0,0,0.5) 80%);
             pointer-events: none;
             z-index: 1;
@@ -137,7 +131,7 @@
             top: 0;
             bottom: 0;
             left: 0px;
-            width: 20px;
+            width: 25px;
             background: linear-gradient(to left, transparent, rgba(255,0,0,0.1) 40%, rgba(255,0,0,0.5) 80%);
             pointer-events: none;
             z-index: 1;
@@ -220,18 +214,16 @@
         }
 
         #left-edge-pixel-anchor {
+            flex-shrink: 0;
             width: 1px;
             height: 1px;
-            top: 0;
-            left: 0;
             user-select: none;
         }
 
         #right-edge-pixel-anchor {
+            flex-shrink: 0;
             width: 1px;
             height: 1px;
-            top: 0;
-            right: 0;
             user-select: none;
         }
     </style>
@@ -288,11 +280,9 @@
     </div>
 
     <div class="container">
-        <div class="multi-column">
-            <div id="left-edge-pixel-anchor"></div>
-            <div id="content"></div>
-            <div id="right-edge-pixel-anchor"></div>
-        </div>
+        <div id="left-edge-pixel-anchor"></div>
+        <div id="content"></div>
+        <div id="right-edge-pixel-anchor"></div>
     </div>
 
     <script id="utilityFunctions">
@@ -470,6 +460,14 @@
             const el = createElement('div');
             el.textContent = str;
             return el.innerHTML;
+        }
+
+        function applyClass(element, condition, className) {
+            if (condition) {
+                element.classList.add(className);
+            } else {
+                element.classList.remove(className);
+            }
         }
 
         function span(content, className) {
@@ -948,11 +946,12 @@
         }
 
         function updateContent() {
+            contentDiv.innerHTML = '';
+
             containerDiv.style.padding = padding.get() + 'px';
 
-            contentDiv.innerHTML = '';
-            contentDiv.className = colorfulChords.get() ? 'colorful-chords' : '';
-            contentDiv.className += colorfulHeaders.get() ? ' colorful-headers' : '';
+            applyClass(contentDiv, colorfulChords.get(), 'colorful-chords');
+            applyClass(contentDiv, colorfulHeaders.get(), 'colorful-headers');
 
             if (fontSize.get()) {
                 contentDiv.style.fontSize = fontSize.get() + 'px';
@@ -1078,22 +1077,11 @@
 
         if ("IntersectionObserver" in window && "IntersectionObserverEntry" in window &&
             "intersectionRatio" in window.IntersectionObserverEntry.prototype) {
+            const leftObserver = new IntersectionObserver(
+                entries => applyClass(contentDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-left'));
 
-            const leftObserver = new IntersectionObserver(entries => {
-                if (entries[0].isIntersecting) {
-                    contentDiv.classList.remove('has-horizontal-overflow-left');
-                } else {
-                    contentDiv.classList.add('has-horizontal-overflow-left');
-                }
-            });
-
-            const rightObserver = new IntersectionObserver(entries => {
-                if (entries[0].isIntersecting) {
-                    contentDiv.classList.remove('has-horizontal-overflow-right');
-                } else {
-                    contentDiv.classList.add('has-horizontal-overflow-right');
-                }
-            });
+            const rightObserver = new IntersectionObserver(
+                entries => applyClass(contentDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-right'));
 
             leftObserver.observe(document.querySelector("#left-edge-pixel-anchor"));
             rightObserver.observe(document.querySelector("#right-edge-pixel-anchor"));
