@@ -80,6 +80,10 @@
             box-sizing: border-box;
         }
 
+        .overflow-y-hidden {
+            overflow-y: hidden;
+        }
+
         .container {
             flex: 1;
             width: 100%;
@@ -165,10 +169,6 @@
             text-overflow: clip; /* Clips text that doesn't fit */
         }
 
-        .line.empty-line {
-            line-height: 1;
-        }
-
         .line .chord {
             font-weight: 700;
             background-color: rgb(232, 232, 232);
@@ -184,13 +184,16 @@
             background-color: rgb(240, 248, 255);
         }
 
-        .line.header-line {
-            padding-top: 0.8em;
-            padding-bottom: 0.4em;
+        .line.empty-line {
+            line-height: 1;
         }
 
-        .line.header-line:first-child {
-            padding-top: 0px !important;
+        .line.empty-line.pre-header-line + .line.header-line{
+            margin-top: -0.3em;
+        }
+
+        .line.header-line {
+            padding-bottom: 0.4em;
         }
 
         .line.header-line > span {
@@ -308,12 +311,89 @@
             window.location.hash = '#' + hashParams.toString();
         }
 
+        function readCookie(name)  {
+            const cookie = document.cookie;
+            const cookies = cookie.split("; ");
+            for (const cookie of cookies) {
+                const [cookieName, cookieValue] = cookie.split('=');
+                if (cookieName === name) {
+                    return decodeURIComponent(cookieValue);
+                }
+            }
+
+            return undefined;
+        }
+
+        function writeCookie(name, value, options = {}) {
+            const {
+                daysToExpire = null,
+                path = '/',
+                domain = '',
+                secure = false,
+                sameSite = 'Lax'
+            } = options;
+
+            let cookieString = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
+
+            if (daysToExpire !== null) {
+                const expirationDate = new Date();
+                expirationDate.setDate(expirationDate.getDate() + daysToExpire);
+                cookieString += `; expires=${expirationDate.toUTCString()}`;
+            }
+
+            cookieString += `; path=${path}`;
+
+            if (domain) {
+                cookieString += `; domain=${domain}`;
+            }
+
+            if (secure) {
+                cookieString += '; secure';
+            }
+
+            cookieString += `; SameSite=${sameSite}`;
+
+            document.cookie = cookieString;
+        }
+
+        function getValueFromCookieDb(cookieStorageName) {
+            try {
+                const [cookieName, keyName] = cookieStorageName.split(":");
+                const cookieValue = readCookie(cookieName);
+                if (cookieValue != undefined) {
+                    const jsonCookieValue = JSON.parse(cookieValue);
+                    return jsonCookieValue[keyName];
+                }
+            } catch {
+                console.error(`Error reading value from cookie: ${cookieStorageName}`);
+            }
+
+            return undefined;
+        }
+
+        function setValueInCookieDb(cookieStorageName, value) {
+            try {
+                const [cookieName, keyName] = cookieStorageName.split(":");
+                const cookieValue = readCookie(cookieName);
+                const jsonCookieValue = cookieValue != undefined ? JSON.parse(cookieValue) : {};
+                jsonCookieValue[keyName] = value;
+                writeCookie(cookieName, JSON.stringify(jsonCookieValue));
+            } catch {
+                console.error(`Error writing value to cookie: ${cookieStorageName}`);
+            }
+        }
+
         function toString(value) {
             return value == undefined ? '' : `${value}`;
         }
 
         function floatToString(value, precision) {
             return value == undefined ? '' : value.toFixed(precision);
+        }
+
+        function roundFloat(value, precision) {
+            const factor = Math.pow(10, precision);
+            return Math.round((value + Number.EPSILON) * factor) / factor;
         }
 
         function toFloat(value) {
@@ -357,7 +437,9 @@
         function createElement(elementName, className, style) {
             const el = document.createElement(elementName);
 
-            if (className) {
+            if (Array.isArray(className)) {
+                el.className = className.join(" ");
+            } else if (className) {
                 el.className = className;
             }
 
@@ -370,27 +452,17 @@
             return el;
         }
 
-        function changeHtmlElement(element, newElementName) {
-            const result = createElement(newElementName, element.className);
-
-            for (const attr of element.attributes) {
-                result.setAttributeNS(null, attr.name, attr.value)
-            }
-
-            while (element.firstChild) {
-                result.appendChild(element.firstChild)
-            }
-
-            element.replaceWith(result);
-            return result;
-        }
-
         function elementSize(element) {
             const boundingRect = element.getBoundingClientRect();
+            const style = window.getComputedStyle(element);
+
+            function parsePixels(styleValue) {
+                return styleValue ? parseFloat(styleValue) : 0;
+            }
 
             return {
-                width: boundingRect.width,
-                height: boundingRect.height
+                width: boundingRect.width + parsePixels(style.marginLeft) + parsePixels(style.marginRight),
+                height: boundingRect.height + parsePixels(style.marginTop) + parsePixels(style.marginBottom)
             }
         }
 
@@ -460,7 +532,7 @@
             }
         }
 
-        function bindInputAndHash(element, hashParam, onChange, parse, stringify) {
+        function bindInputAndHash(element, hashParam, cookieStorageName, onChange, parse, stringify) {
             parse = parse || (value => value);
             stringify = stringify || (value => value);
 
@@ -468,6 +540,20 @@
 
             function loadFromUrl() {
                 const value = getHashParam(hashParam);
+
+                if (value != undefined) {
+                    const parsedValue = parse(value);
+                    if (parsedValue !== currentValue) {
+                        currentValue = parsedValue;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            function loadFromCookie() {
+                const value = getValueFromCookieDb(cookieStorageName)
 
                 if (value != undefined) {
                     const parsedValue = parse(value);
@@ -503,6 +589,13 @@
                 }
             }
 
+            function updateCookie() {
+                if (cookieStorageName) {
+                    const stringifiedCurrentValue = stringify(currentValue);
+                    setValueInCookieDb(cookieStorageName, stringifiedCurrentValue);
+                }
+            }
+
             function updateElement() {
                 if (element) {
                     const stringifiedCurrentValue = stringify(currentValue);
@@ -518,6 +611,7 @@
                 element.addEventListener('input', () => {
                     if (loadFromElement()) {
                         updateUrl();
+                        updateCookie();
                         onChange(currentValue);
                     }
                 });
@@ -527,6 +621,7 @@
                 window.addEventListener('hashchange', () => {
                     if (loadFromUrl()) {
                         updateElement();
+                        updateCookie();
                         onChange(currentValue);
                     }
                 });
@@ -534,6 +629,9 @@
 
             if (hashParam && getHashParam(hashParam) != undefined) {
                 loadFromUrl();
+                updateElement();
+            } else if (cookieStorageName && getValueFromCookieDb(cookieStorageName) != undefined) {
+                loadFromCookie();
                 updateElement();
             } else if (element) {
                 loadFromElement();
@@ -545,6 +643,7 @@
                     currentValue = value;
                     updateElement();
                     updateUrl();
+                    updateCookie();
                     onChange(currentValue);
                 },
                 setElementValueSilently: function(value) {
@@ -714,20 +813,21 @@
 
         function createLineHtmlElement(line, nextLine, capoAsWritten, transpose, capo, preferredAccidental) {
             if (isWhitespace(line)) {
-                const element = createElement('div', 'line');
-                element.className += ' empty-line';
-                element.innerHTML = '&nbsp;';
+                const element = createElement('div', ['line', 'empty-line']);
+                element.innerHTML = "<br>"
+                if (isHeaderLine(nextLine)) {
+                    element.classList.add("pre-header-line");
+                }
                 return element;
             } else if (isHeaderLine(line)) {
-                const element = createElement('div', 'line');
-                element.className += ' header-line';
+                const element = createElement('div', ['line', 'header-line']);
                 element.innerHTML = line.replaceAll(
                     regexes.header,
                     (match, wh1, br1, title, br2, wh2) =>
                         `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
                 return element;
             } else {
-                const element = isHeaderLine(nextLine) ? createElement('p', 'line') : createElement('div', 'line');
+                const element = createElement('div', 'line');
                 element.innerHTML = spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental);
                 return element;
             }
@@ -755,15 +855,25 @@
             const result = [];
 
             for (let i = 0; i < lines.length; i++) {
-                if (isWhitespace(lines[i]) &&
-                    (isHeaderLine(lines[i + 1]) ||
-                     isHeaderLine(lines[i + 2]) && isWhitespace(lines[i + 1]) ||
-                     isHeaderLine(lines[i - 1]) ||
-                     isHeaderLine(lines[i - 2]) && isWhitespace(lines[i - 1]))) {
-                    continue;
+                if (isWhitespace(lines[i])) {
+                    // if two empty lines precede header, keep only one
+                    if (isWhitespace(lines[i + 1]) && isHeaderLine(lines[i + 2])) {
+                        continue;
+                    }
+
+                    // remove up to two empty lines after a header
+                    if (isHeaderLine(lines[i - 1]) ||
+                        isWhitespace(lines[i - 1]) && isHeaderLine(lines[i - 2])) {
+                        continue;
+                    }
                 }
 
                 result.push(lines[i].trimEnd()); // Trim whitespace from the end of each line
+
+                // enforce one empty line before a header
+                if (!isWhitespace(lines[i]) && isHeaderLine(lines[i + 1])) {
+                    result.push("");
+                }
             };
 
             // Remove empty lines at the end of the text
@@ -776,16 +886,16 @@
     </script>
 
     <script id="main">
-        const text = bindInputAndHash(document.getElementById('input-text'), 'text', updateContent);
-        const fontSize = bindInputAndHash(document.getElementById('font-size'), 'fontSize', updateContent, toFloat, v => floatToString(v, 1));
-        const transpose = bindInputAndHash(document.getElementById('transpose'), 'transpose', updateContent, toFloat, toString);
-        const capo = bindInputAndHash(document.getElementById('capo'), 'capo', updateContent, toFloat, toString);
-        const capoAsWritten = bindInputAndHash(document.getElementById('capoAsWritten'), 'capoAsWritten', updateContent, toFloat, toString);
-        const preferredAccidental = bindInputAndHash(document.getElementById('preferred-accidental'), 'preferredAccidental', updateContent);
-        const colorfulChords = bindInputAndHash(document.getElementById('colorful-chords'), 'colorfulChords', updateContent, toBoolean, toString);
-        const colorfulHeaders = bindInputAndHash(document.getElementById('colorful-headers'), 'colorfulHeaders', updateContent, toBoolean, toString);
-        const title = bindInputAndHash(null, 'title', value => document.title = value);
-        const padding = bindInputAndHash(document.getElementById('padding'), null, updateContent, toFloat, toString);
+        const text = bindInputAndHash(document.getElementById('input-text'), 'text', null, updateContent);
+        const fontSize = bindInputAndHash(document.getElementById('font-size'), 'fontSize', null, updateContent, toFloat, v => floatToString(v, 1));
+        const transpose = bindInputAndHash(document.getElementById('transpose'), 'transpose', null, updateContent, toFloat, v => floatToString(v, 0));
+        const capo = bindInputAndHash(document.getElementById('capo'), 'capo', null, updateContent, toFloat, v => floatToString(v, 0));
+        const capoAsWritten = bindInputAndHash(document.getElementById('capoAsWritten'), 'capoAsWritten', null, updateContent, toFloat, v => floatToString(v, 0));
+        const preferredAccidental = bindInputAndHash(document.getElementById('preferred-accidental'), 'preferredAccidental', 'db:preferredAccidental', updateContent);
+        const colorfulChords = bindInputAndHash(document.getElementById('colorful-chords'), 'colorfulChords', 'db:colorfulChords', updateContent, toBoolean, toString);
+        const colorfulHeaders = bindInputAndHash(document.getElementById('colorful-headers'), 'colorfulHeaders', 'db:colorfulHeaders', updateContent, toBoolean, toString);
+        const padding = bindInputAndHash(document.getElementById('padding'), 'padding', 'db:padding', updateContent, toFloat, v => floatToString(v, 0));
+        const title = bindInputAndHash(null, 'title', null, value => document.title = value);
 
         const contentDiv = document.getElementById('content');
         const controlsWrapper = document.getElementById('controls-wrapper');
@@ -811,7 +921,7 @@
             const defaultSize = fontSize.get();
 
             const fontSizes = [];
-            for (let size = 8, i = 0; size <= 20; size += 0.2, i++) {
+            for (let size = 8, i = 0; size <= 20; size = roundFloat(size + 0.2, 2), i++) {
                 fontSizes[i] = size;
             }
 
@@ -889,11 +999,11 @@
                     lineFitsCurrentColumn = currentColumn.height + requiredHeight <= availableHeight;
 
                     if (!lineFitsCurrentColumn) {
-                        currentColumn.div.removeChild(lineElement);
-                        if (isWhitespace(line) && currentColumn.div.lastChild) {
-                            // we change the type of last element in column to <p>
-                            // so that it includes a newline when copy pasted
-                            changeHtmlElement(currentColumn.div.lastChild, "p");
+
+                        if (isWhitespace(line)) {
+                            lineElement.classList.add('overflow-y-hidden');
+                        } else {
+                            currentColumn.div.removeChild(lineElement);
                         }
                     } else {
                         currentColumn.width = Math.max(currentColumn.width, elementSize(lineElement).width);
@@ -956,12 +1066,12 @@
             } else if (e.key.toLowerCase() === 'n') { // Decrease font size with 'n'
                 const currentSize = fontSize.get();
                 if (currentSize > 8) { // Minimum font size
-                    fontSize.set(currentSize - 0.2);
+                    fontSize.set(roundFloat(currentSize - 0.2, 2));
                 }
             } else if (e.key.toLowerCase() === 'm') { // Increase font size with 'm'
                 const currentSize = fontSize.get();
                 if (currentSize < 36) { // Maximum font size
-                    fontSize.set(currentSize + 0.2);
+                    fontSize.set(roundFloat(currentSize + 0.2, 2));
                 }
             }
         });
