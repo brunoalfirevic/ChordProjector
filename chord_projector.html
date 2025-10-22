@@ -17,7 +17,7 @@
         body {
             display: flex;
             flex-direction: column;
-            padding: 10px;
+            padding: 5px;
             font-size: 15px; /* Default size that will be configurable */
             box-sizing: border-box;
         }
@@ -84,20 +84,22 @@
             overflow-y: hidden;
         }
 
-        .container {
-            flex: 1;
+        .content-wrapper {
             display: flex;
+            flex: 1;
             position: relative;
+        }
+
+        .content-container {
+            display: flex;
             width: 100%;
             box-sizing: border-box;
-            margin-top: 10px;
             border: 1px solid #ddd;
             overflow-x: auto; /* Allow horizontal scrolling */
             overflow-y: hidden; /* No vertical scrolling */
         }
 
-        .container.fullscreen {
-            margin-top: 0;
+        .content-container.fullscreen {
             border: none;
         }
 
@@ -113,9 +115,22 @@
             padding-right: 10px;
         }
 
+        .has-horizontal-overflow-left::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0px;
+            width: 25px;
+            background: linear-gradient(to left, transparent, rgba(255,0,0,0.1) 40%, rgba(255,0,0,0.5) 80%);
+            pointer-events: none;
+            z-index: 1;
+        }
+
+
         .has-horizontal-overflow-right::after {
             content: '';
-            position: fixed;
+            position: absolute;
             top: 0;
             bottom: 0;
             right: 0px;
@@ -125,17 +140,6 @@
             z-index: 1;
         }
 
-        .has-horizontal-overflow-left::before {
-            content: '';
-            position: fixed;
-            top: 0;
-            bottom: 0;
-            left: 0px;
-            width: 25px;
-            background: linear-gradient(to left, transparent, rgba(255,0,0,0.1) 40%, rgba(255,0,0,0.5) 80%);
-            pointer-events: none;
-            z-index: 1;
-        }
 
         /* column separator */
         .column:not(:last-child)::after {
@@ -279,10 +283,12 @@
         </div>
     </div>
 
-    <div class="container">
-        <div id="left-edge-pixel-anchor"></div>
-        <div id="content"></div>
-        <div id="right-edge-pixel-anchor"></div>
+    <div class="content-wrapper" id="content-wrapper">
+        <div id="content-container" class="content-container">
+            <div id="left-edge-pixel-anchor"></div>
+            <div id="content"></div>
+            <div id="right-edge-pixel-anchor"></div>
+        </div>
     </div>
 
     <script id="utilityFunctions">
@@ -905,9 +911,10 @@
         const padding = bindInputAndHash(document.getElementById('padding'), 'padding', 'db:padding', updateContent, toFloat, v => floatToString(v, 0));
         const title = bindInputAndHash(null, 'title', null, value => document.title = value);
 
-        const contentDiv = document.getElementById('content');
         const controlsWrapper = document.getElementById('controls-wrapper');
-        const containerDiv = document.querySelector('.container');
+        const contentWrapper = document.getElementById('content-wrapper')
+        const containerDiv = document.getElementById('content-container');
+        const contentDiv = document.getElementById('content');
 
         // Initial title
         document.title = title.get() || 'Chord Projector';
@@ -958,7 +965,7 @@
         function updateContent() {
             contentDiv.innerHTML = '';
 
-            containerDiv.style.padding = padding.get() + 'px';
+            contentWrapper.style.margin = padding.get() + 'px';
 
             applyClass(contentDiv, colorfulChords.get(), 'colorful-chords');
             applyClass(contentDiv, colorfulHeaders.get(), 'colorful-headers');
@@ -1088,10 +1095,10 @@
         if ("IntersectionObserver" in window && "IntersectionObserverEntry" in window &&
             "intersectionRatio" in window.IntersectionObserverEntry.prototype) {
             const leftObserver = new IntersectionObserver(
-                entries => applyClass(contentDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-left'));
+                entries => applyClass(containerDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-left'));
 
             const rightObserver = new IntersectionObserver(
-                entries => applyClass(contentDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-right'));
+                entries => applyClass(containerDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-right'));
 
             leftObserver.observe(document.querySelector("#left-edge-pixel-anchor"));
             rightObserver.observe(document.querySelector("#right-edge-pixel-anchor"));
