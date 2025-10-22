@@ -221,14 +221,14 @@
             color: rgb(232, 232, 232);
         }
 
-        #left-edge-pixel-anchor {
+        #leftEdgePixelAnchor {
             flex-shrink: 0;
             width: 1px;
             height: 1px;
             user-select: none;
         }
 
-        #right-edge-pixel-anchor {
+        #rightEdgePixelAnchor {
             flex-shrink: 0;
             width: 1px;
             height: 1px;
@@ -237,18 +237,18 @@
     </style>
 </head>
 <body>
-    <div id="controls-wrapper" class="controls-wrapper">
+    <div id="controlsWrapper" class="controls-wrapper">
         <div class="text-input-container">
-            <textarea id="input-text" placeholder="Enter your text here..."></textarea>
+            <textarea id="inputText" placeholder="Enter your text here..."></textarea>
         </div>
 
         <div class="controls-container">
             <div class="controls">
-                <label for="font-size">Font size (px):</label>
-                <input type="number" id="font-size" min="8" max="20" value="15" step="0.2">
+                <label for="fontSize">Font size (px):</label>
+                <input type="number" id="fontSize" min="8" max="20" value="15" step="0.2">
 
-                <label for="preferred-accidental">Preferred accidental:</label>
-                <select id="preferred-accidental">
+                <label for="preferredAccidental">Preferred accidental:</label>
+                <select id="preferredAccidental">
                   <option value="#" selected>#</option>
                   <option value="♯">♯ (stylized)</option>
                   <option value="b">b</option>
@@ -268,11 +268,11 @@
 
                 <br>
 
-                <label for="colorful-chords">Colorful chords:</label>
-                <input type="checkbox" id="colorful-chords" value="true" checked>
+                <label for="colorfulChords">Colorful chords:</label>
+                <input type="checkbox" id="colorfulChords" value="true" checked>
 
-                <label for="colorful-headers">Colorful headers:</label>
-                <input type="checkbox" id="colorful-headers" value="true" checked>
+                <label for="colorfulHeaders">Colorful headers:</label>
+                <input type="checkbox" id="colorfulHeaders" value="true" checked>
 
                 <label for="padding">Padding:</label>
                 <input class="whole-number" type="number" id="padding" min="0" max="99" step="5" value="0">
@@ -287,11 +287,11 @@
         </div>
     </div>
 
-    <div id="content-wrapper" class="content-wrapper">
-        <div id="content-container" class="content-container">
-            <div id="left-edge-pixel-anchor"></div>
+    <div id="contentWrapper" class="content-wrapper">
+        <div id="contentContainer" class="content-container">
+            <div id="leftEdgePixelAnchor"></div>
             <div id="content"></div>
-            <div id="right-edge-pixel-anchor"></div>
+            <div id="rightEdgePixelAnchor"></div>
         </div>
     </div>
 
@@ -901,21 +901,19 @@
     </script>
 
     <script id="main">
-        const text = bindInputAndHash(document.getElementById('input-text'), 'text', null, updateContent);
-        const fontSize = bindInputAndHash(document.getElementById('font-size'), 'fontSize', null, updateContent, toFloat, v => floatToString(v, 1));
-        const transpose = bindInputAndHash(document.getElementById('transpose'), 'transpose', null, updateContent, toFloat, v => floatToString(v, 0));
-        const capo = bindInputAndHash(document.getElementById('capo'), 'capo', null, updateContent, toFloat, v => floatToString(v, 0));
-        const capoAsWritten = bindInputAndHash(document.getElementById('capoAsWritten'), 'capoAsWritten', null, updateContent, toFloat, v => floatToString(v, 0));
-        const preferredAccidental = bindInputAndHash(document.getElementById('preferred-accidental'), 'preferredAccidental', 'db:preferredAccidental', updateContent);
-        const colorfulChords = bindInputAndHash(document.getElementById('colorful-chords'), 'colorfulChords', 'db:colorfulChords', updateContent, toBoolean, toString);
-        const colorfulHeaders = bindInputAndHash(document.getElementById('colorful-headers'), 'colorfulHeaders', 'db:colorfulHeaders', updateContent, toBoolean, toString);
-        const padding = bindInputAndHash(document.getElementById('padding'), 'padding', 'db:padding', updateContent, toFloat, v => floatToString(v, 0));
-        const title = bindInputAndHash(null, 'title', null, value => document.title = value);
+        const doc = {};
+        document.querySelectorAll('[id]').forEach(node => doc[node.id] = node);
 
-        const controlsWrapper = document.getElementById('controls-wrapper');
-        const contentWrapper = document.getElementById('content-wrapper')
-        const containerDiv = document.getElementById('content-container');
-        const contentDiv = document.getElementById('content');
+        const text = bindInputAndHash(doc.inputText, 'text', null, updateContent);
+        const fontSize = bindInputAndHash(doc.fontSize, 'fontSize', null, updateContent, toFloat, v => floatToString(v, 1));
+        const transpose = bindInputAndHash(doc.transpose, 'transpose', null, updateContent, toFloat, v => floatToString(v, 0));
+        const capo = bindInputAndHash(doc.capo, 'capo', null, updateContent, toFloat, v => floatToString(v, 0));
+        const capoAsWritten = bindInputAndHash(doc.capoAsWritten, 'capoAsWritten', null, updateContent, toFloat, v => floatToString(v, 0));
+        const preferredAccidental = bindInputAndHash(doc.preferredAccidental, 'preferredAccidental', 'db:preferredAccidental', updateContent);
+        const colorfulChords = bindInputAndHash(doc.colorfulChords, 'colorfulChords', 'db:colorfulChords', updateContent, toBoolean, toString);
+        const colorfulHeaders = bindInputAndHash(doc.colorfulHeaders, 'colorfulHeaders', 'db:colorfulHeaders', updateContent, toBoolean, toString);
+        const padding = bindInputAndHash(doc.padding, 'padding', 'db:padding', updateContent, toFloat, v => floatToString(v, 0));
+        const title = bindInputAndHash(null, 'title', null, value => document.title = value);
 
         // Initial title
         document.title = title.get() || 'Chord Projector';
@@ -960,15 +958,15 @@
         }
 
         function updateContent() {
-            contentDiv.innerHTML = '';
+            doc.content.innerHTML = '';
 
-            contentWrapper.style.margin = padding.get() + 'px';
+            doc.contentWrapper.style.margin = padding.get() + 'px';
 
-            applyClass(contentDiv, colorfulChords.get(), 'colorful-chords');
-            applyClass(contentDiv, colorfulHeaders.get(), 'colorful-headers');
+            applyClass(doc.content, colorfulChords.get(), 'colorful-chords');
+            applyClass(doc.content, colorfulHeaders.get(), 'colorful-headers');
 
             if (fontSize.get()) {
-                contentDiv.style.fontSize = fontSize.get() + 'px';
+                doc.content.style.fontSize = fontSize.get() + 'px';
             }
 
             const inferredCapo = inferCapo(text.get());
@@ -976,8 +974,10 @@
                 capo.setSilentlyIfNotInUrl(inferredCapo);
             }
 
-            const availableHeight = elementSize(contentDiv, {includePadding: false, includeMargin: false}).height;
-            const availableWidth = elementSize(containerDiv, {includePadding: false, includeMargin: false}).width - 2; // for edge anchors
+            const availableHeight = elementSize(doc.content, {includePadding: false, includeMargin: false}).height;
+            const availableWidth = elementSize(doc.contentContainer, {includePadding: false, includeMargin: false}).width -
+                                   elementSize(doc.leftEdgePixelAnchor).width -
+                                   elementSize(doc.rightEdgePixelAnchor).width;
 
             const lines = parseLines(text.get());
             const lineElements = lines.map((line, i) => createLineHtmlElement(line,
@@ -1029,7 +1029,7 @@
                     }
 
                     const newColumnDiv = createElement('div', 'column', {position: 'absolute', visibility: 'hidden'});
-                    contentDiv.appendChild(newColumnDiv);
+                    doc.content.appendChild(newColumnDiv);
                     newColumnDiv.appendChild(lineElement);
 
                     currentColumn = {
@@ -1049,7 +1049,7 @@
                 column.div.style.visibility = '';
             });
 
-            return elementSize(contentDiv).width <= availableWidth;
+            return elementSize(doc.content).width <= availableWidth;
         }
     </script>
 
@@ -1066,7 +1066,7 @@
             }
 
             if (e.key.toLowerCase() === 'h') { // Toggle controls visibility with 'h'
-                applyClass(document.body, isDisplayed(controlsWrapper), 'fullscreen');
+                applyClass(document.body, isDisplayed(doc.controlsWrapper), 'fullscreen');
                 updateContent();
             } else if (e.key.toLowerCase() === 'n') { // Decrease font size with 'n'
                 const currentSize = fontSize.get();
@@ -1085,11 +1085,11 @@
             "IntersectionObserverEntry" in window &&
             "intersectionRatio" in window.IntersectionObserverEntry.prototype) {
 
-            new IntersectionObserver(entries => applyClass(containerDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-left'))
-                .observe(document.querySelector("#left-edge-pixel-anchor"));
+            new IntersectionObserver(entries => applyClass(doc.contentContainer, !entries[0].isIntersecting, 'has-horizontal-overflow-left'))
+                .observe(doc.leftEdgePixelAnchor);
 
-            new IntersectionObserver(entries => applyClass(containerDiv, !entries[0].isIntersecting, 'has-horizontal-overflow-right'))
-                .observe(document.querySelector("#right-edge-pixel-anchor"))
+            new IntersectionObserver(entries => applyClass(doc.contentContainer, !entries[0].isIntersecting, 'has-horizontal-overflow-right'))
+                .observe(doc.rightEdgePixelAnchor);
         }
     </script>
 </body>
