@@ -442,17 +442,27 @@
             return el;
         }
 
-        function elementSize(element) {
-            const boundingRect = element.getBoundingClientRect();
-            const style = window.getComputedStyle(element);
-
+        function elementSize(element, options = {}) {
             function parsePixels(styleValue) {
                 return styleValue ? parseFloat(styleValue) : 0;
             }
 
+            const {
+                includeMargin = true,
+                includePadding = true
+            } = options;
+
+            const boundingRect = element.getBoundingClientRect();
+            const style = window.getComputedStyle(element);
+
             return {
-                width: boundingRect.width + parsePixels(style.marginLeft) + parsePixels(style.marginRight),
-                height: boundingRect.height + parsePixels(style.marginTop) + parsePixels(style.marginBottom)
+                width: boundingRect.width +
+                       (includeMargin ? parsePixels(style.marginLeft) + parsePixels(style.marginRight) : 0) +
+                       (includePadding ? 0 : -parsePixels(style.paddingLeft) - parsePixels(style.paddingRight)),
+
+                height: boundingRect.height +
+                        (includeMargin ? parsePixels(style.marginTop) + parsePixels(style.marginBottom) : 0) +
+                        (includePadding ? 0 : -parsePixels(style.paddingTop) - parsePixels(style.paddingBottom)),
             }
         }
 
@@ -962,8 +972,8 @@
                 capo.setSilentlyIfNotInUrl(inferredCapo);
             }
 
-            const availableHeight = contentDiv.clientHeight;
-            const availableWidth = containerDiv.clientWidth;
+            const availableHeight = elementSize(contentDiv, {includePadding: false, includeMargin: false}).height;
+            const availableWidth = elementSize(containerDiv, {includePadding: false, includeMargin: false}).width;
 
             const lines = parseLines(text.get());
             const lineElements = lines.map((line, i) => createLineHtmlElement(line,
