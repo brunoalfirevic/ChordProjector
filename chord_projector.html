@@ -122,11 +122,10 @@
             bottom: 0;
             left: -1000px;
             width: 1010px;
-            background: linear-gradient(to left, transparent, rgba(255,0,0,0.1) 0px, rgba(255,0,0,0.65) 15px, rgba(255,0,0,0.7) 100%);
+            background: linear-gradient(to left, transparent, rgba(255,0,0,0.1) 0px, rgba(255,0,0,0.65) 15px, rgba(255,0,0,0.65) 100%);
             pointer-events: none;
             z-index: 1;
         }
-
 
         .has-horizontal-overflow-right::after {
             content: '';
@@ -135,11 +134,10 @@
             bottom: 0;
             right: -1000px;
             width: 1010px;
-            background: linear-gradient(.25turn, transparent, rgba(255,0,0,0.1) 0px, rgba(255,0,0,0.65) 15px, rgba(255,0,0,0.7) 100%);
+            background: linear-gradient(.25turn, transparent, rgba(255,0,0,0.1) 0px, rgba(255,0,0,0.65) 15px, rgba(255,0,0,0.65) 100%);
             pointer-events: none;
             z-index: 1;
         }
-
 
         /* column separator */
         .column:not(:last-child)::after {
@@ -241,7 +239,7 @@
         <div class="controls-container">
             <div class="controls">
                 <label for="fontSize">Font size (px):</label>
-                <input type="number" id="fontSize" min="8" max="20" value="15" step="0.2">
+                <input type="number" id="fontSize" min="8" max="22" value="15" step="0.2">
 
                 <label for="preferredAccidental">Preferred accidental:</label>
                 <select id="preferredAccidental">
@@ -453,10 +451,7 @@
                 return styleValue ? parseFloat(styleValue) : 0;
             }
 
-            const {
-                includeMargin = true,
-                includePadding = true
-            } = options;
+            const { includeMargin = true, includePadding = true } = options;
 
             const boundingRect = element.getBoundingClientRect();
             const style = window.getComputedStyle(element);
@@ -696,8 +691,8 @@
             header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
             fingering: /((\d|x){4,7})/g,
             allowedWithChords: /\([^()]+\)|[\s|%*()\-[\]]/g,
-            capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi,
-            tab: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/gi
+            tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/gi,
+            capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi
         };
 
         const noteChart = (function() {
@@ -741,12 +736,12 @@
             return !isWhitespace(line) && line.match(regexes.header);
         }
 
-        function isTabLine(line) {
-            return line.match(regexes.tab);
+        function isTablatureLine(line) {
+            return line.match(regexes.tablature);
         }
 
         function isChordLine(line) {
-            if (isWhitespace(line) || isTabLine(line)) {
+            if (isWhitespace(line) || isTablatureLine(line)) {
                 return false;
             }
 
@@ -927,8 +922,11 @@
             const defaultSize = fontSize.get();
 
             const fontSizes = [];
-            for (let size = 8, i = 0; size <= 20; size = roundFloat(size + 0.2, 2), i++) {
-                fontSizes[i] = size;
+            for (let size = parseFloat(doc.fontSize.min);
+                 size <= parseFloat(doc.fontSize.max);
+                 size = roundFloat(size + parseFloat(doc.fontSize.step), 1)) {
+
+                fontSizes.push(size);
             }
 
             let low = 0;
@@ -941,9 +939,7 @@
 
                 if (updateContent()) { // updateContent returns true if it fits
                     low = i + 1;
-                    if (fontSizes[i] > highestFit) {
-                        highestFit = fontSizes[i];
-                    }
+                    highestFit = Math.max(highestFit, fontSizes[i]);
                 } else {
                     high = i - 1;
                 }
@@ -955,15 +951,11 @@
 
         function updateContent() {
             doc.content.innerHTML = '';
-
             doc.contentWrapper.style.margin = padding.get() + 'px';
+            doc.content.style.fontSize = fontSize.get() + 'px';
 
             applyClass(doc.content, colorfulChords.get(), 'colorful-chords');
             applyClass(doc.content, colorfulHeaders.get(), 'colorful-headers');
-
-            if (fontSize.get()) {
-                doc.content.style.fontSize = fontSize.get() + 'px';
-            }
 
             const inferredCapo = inferCapo(text.get());
             if (capoAsWritten.setSilentlyIfNotInUrl(inferredCapo)) {
@@ -1038,7 +1030,6 @@
                 }
             }
 
-            // Render columns with their content
             columns.forEach((column, i) => {
                 column.div.style.width = column.width + 'px';
                 column.div.style.position = '';
@@ -1065,14 +1056,14 @@
                 applyClass(document.body, isDisplayed(doc.controlsWrapper), 'fullscreen');
                 updateContent();
             } else if (e.key.toLowerCase() === 'n') { // Decrease font size with 'n'
-                const currentSize = fontSize.get();
-                if (currentSize > 8) { // Minimum font size
-                    fontSize.set(roundFloat(currentSize - 0.2, 2));
+                const newSize = roundFloat(fontSize.get() - parseFloat(doc.fontSize.step), 1);
+                if (newSize >= parseFloat(doc.fontSize.min)) {
+                    fontSize.set(newSize);
                 }
             } else if (e.key.toLowerCase() === 'm') { // Increase font size with 'm'
-                const currentSize = fontSize.get();
-                if (currentSize < 36) { // Maximum font size
-                    fontSize.set(roundFloat(currentSize + 0.2, 2));
+                const newSize = roundFloat(fontSize.get() + parseFloat(doc.fontSize.step), 1);
+                if (newSize <= parseFloat(doc.fontSize.max)) {
+                    fontSize.set(newSize);
                 }
             }
         });
