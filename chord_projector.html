@@ -36,11 +36,11 @@
         }
 
         .text-input-container {
-            flex: 3; /* Takes 3/5 of the space */
+            flex: 7;
         }
 
         .controls-container {
-            flex: 2; /* Takes 2/5 of the space */
+            flex: 4;
             display: flex;
             flex-direction: column;
             justify-content: space-between;
@@ -463,10 +463,6 @@
 
         function coalesce(value, defaultValue) {
             return value == undefined ? defaultValue : value;
-        }
-
-        function isDisplayed(element) {
-            return window.getComputedStyle(element).display !== 'none';
         }
 
         function isEmpty(str) {
@@ -952,22 +948,52 @@
 
             return result;
         }
+
+        function findMaxFontSizeThatFitsContentToScreen(minFontSize, maxFontSize, fontSizeStep, testFunc) {
+            const fontSizes = [];
+            for (let size = minFontSize; size <= maxFontSize; size = roundFloat(size + fontSizeStep, 1)) {
+                fontSizes.push(size);
+            }
+
+            let low = 0;
+            let high = fontSizes.length - 1;
+            let highestFit = 0;
+
+            while (low <= high) {
+                const i = Math.floor((low + high) / 2);
+
+                if (testFunc(fontSizes[i])) {
+                    low = i + 1;
+                    highestFit = Math.max(highestFit, fontSizes[i]);
+                } else {
+                    high = i - 1;
+                }
+            }
+
+            return highestFit > 0 ? highestFit : undefined;
+        }
     </script>
 
-    <script id="renderingFunctions">
-        function redrawContent(fontSize, text, capoAsWritten, transpose, capo, preferredAccidental) {
+    <script id="domAndDataManipulationFunctions">
+        function redrawContent() {
             doc.content.innerHTML = '';
-            doc.content.style.fontSize = fontSize + 'px';
+            doc.content.style.fontSize = data.fontSize.get() + 'px';
+
+            doc.contentWrapper.style.padding = `${data.padding.get()}px 0px`;
+            doc.contentWrapper.style.margin = `0px ${data.padding.get()}px`;
+
+            applyClass(doc.content, data.colorfulChords.get(), 'colorful-chords');
+            applyClass(doc.content, data.colorfulHeaders.get(), 'colorful-headers');
 
             const availableHeight = elementSize(doc.content, {includePadding: false, includeMargin: false}).height;
 
-            const lines = parseLines(text);
+            const lines = parseLines(data.text.get());
             const lineElements = lines.map((line, i) => createLineHtmlElement(line,
                                                                               lines[i+1],
-                                                                              capoAsWritten,
-                                                                              transpose,
-                                                                              capo,
-                                                                              preferredAccidental));
+                                                                              data.capoAsWritten.get(),
+                                                                              data.transpose.get(),
+                                                                              data.capo.get(),
+                                                                              data.preferredAccidental.get()));
 
             const columns = [];
             let currentColumn = null;
@@ -1033,85 +1059,63 @@
             return elementSize(doc.content).width;
         }
 
-        // destroys what's in content div, needs a redraw after
-        function findMaxFontSizeThatFitsContentToScreen(text, capoAsWritten, transpose, capo, preferredAccidental) {
-            const fontSizes = [];
-            for (let size = parseFloat(doc.fontSize.min);
-                 size <= parseFloat(doc.fontSize.max);
-                 size = roundFloat(size + parseFloat(doc.fontSize.step), 1)) {
+        function redraw(considerRefitting) {
+            const shouldRefit = considerRefitting &&
+                                data.text.get() && data.text.get().length >= 100 &&
+                                !data.fontSize.hasHashParam();
 
-                fontSizes.push(size);
+            if (shouldRefit) {
+                fullscreen.withTemporaryFullscreen(() => {
+                    const availableWidth = elementSize(doc.contentContainer, {includePadding: false, includeMargin: false}).width -
+                                           elementSize(doc.leftEdgePixelAnchor).width -
+                                           elementSize(doc.rightEdgePixelAnchor).width;
+
+                    const defaultFontSize = data.fontSize.get();
+
+                    const fittingFontSize = findMaxFontSizeThatFitsContentToScreen(
+                        parseFloat(doc.fontSize.min),
+                        parseFloat(doc.fontSize.max),
+                        parseFloat(doc.fontSize.step),
+                        fontSize => {
+                            data.fontSize.setElementValueSilently(fontSize);
+                            return redrawContent() < availableWidth;
+                        });
+
+                    data.fontSize.setElementValueSilently(fittingFontSize ?? defaultFontSize);
+                });
             }
 
-            const availableWidth = elementSize(doc.contentContainer, {includePadding: false, includeMargin: false}).width -
-                                   elementSize(doc.leftEdgePixelAnchor).width -
-                                   elementSize(doc.rightEdgePixelAnchor).width;
-
-            let low = 0;
-            let high = fontSizes.length - 1;
-            let highestFit = 0;
-
-            while (low <= high) {
-                const i = Math.floor((low + high) / 2);
-
-                if (redrawContent(fontSizes[i], text, capoAsWritten, transpose, capo, preferredAccidental) <= availableWidth) {
-                    low = i + 1;
-                    highestFit = Math.max(highestFit, fontSizes[i]);
-                } else {
-                    high = i - 1;
-                }
-            }
-
-            return highestFit > 0 ? highestFit : undefined;
+            redrawContent();
         }
 
-        function redraw(options = {}) {
-            const { inferCapo = false, considerRefitting = false } = options;
-
-            if (inferCapo) {
-                const inferredCapo = inferCapoFromText(data.text.get());
-                if (!data.capoAsWritten.hasHashParam()) {
-                    data.capoAsWritten.setElementValueSilently(inferredCapo);
-                    if (!data.capo.hasHashParam()) {
-                        data.capo.setElementValueSilently(inferredCapo);
-                    }
+        function inferCapo() {
+            const inferredCapo = inferCapoFromText(data.text.get());
+            if (!data.capoAsWritten.hasHashParam()) {
+                data.capoAsWritten.setElementValueSilently(inferredCapo);
+                if (!data.capo.hasHashParam()) {
+                    data.capo.setElementValueSilently(inferredCapo);
                 }
             }
+        }
 
-            doc.contentWrapper.style.padding = `${data.padding.get()}px 0px`;
-            doc.contentWrapper.style.margin = `0px ${data.padding.get()}px`;
+        const fullscreen = {
+            isFullScreen: () => document.body.classList.contains('fullscreen'),
 
-            applyClass(doc.content, data.colorfulChords.get(), 'colorful-chords');
-            applyClass(doc.content, data.colorfulHeaders.get(), 'colorful-headers');
+            enable: value => {
+                applyClass(document.body, value, 'fullscreen');
+                redraw(value);
+            },
 
-            if (considerRefitting &&
-                data.text.get() && data.text.get().length >= 100 &&
-                !data.fontSize.hasHashParam()) {
-
-                const controlsWereDisplayed = isDisplayed(doc.controlsWrapper);
+            withTemporaryFullscreen: (action) => {
+                const wasFullscreen = fullscreen.isFullScreen();
                 document.body.classList.add('fullscreen');
 
-                const fontSize = findMaxFontSizeThatFitsContentToScreen(data.text.get(),
-                                                                        data.capoAsWritten.get(),
-                                                                        data.transpose.get(),
-                                                                        data.capo.get(),
-                                                                        data.preferredAccidental.get());
+                action();
 
-                if (fontSize) {
-                    data.fontSize.setElementValueSilently(fontSize);
-                }
-
-                if (controlsWereDisplayed) {
+                if (!wasFullscreen) {
                     document.body.classList.remove('fullscreen');
                 }
             }
-
-            redrawContent(data.fontSize.get(),
-                          data.text.get(),
-                          data.capoAsWritten.get(),
-                          data.transpose.get(),
-                          data.capo.get(),
-                          data.preferredAccidental.get());
         }
     </script>
 
@@ -1120,7 +1124,10 @@
         document.querySelectorAll('[id]').forEach(element => doc[element.id] = element);
 
         const data = {
-            text: bindData(doc.inputText, 'text', null, (currentValue, previousValue) => redraw({inferCapo: true, considerRefitting: !previousValue})),
+            text: bindData(doc.inputText, 'text', null, (_, previousValue) => {
+                inferCapo();
+                redraw(!previousValue);
+            }),
             fontSize: bindData(doc.fontSize, 'fontSize', null, () => redraw(), toFloat, v => floatToString(v, 1)),
             transpose: bindData(doc.transpose, 'transpose', null, () => redraw(), toFloat, v => floatToString(v, 0)),
             capo: bindData(doc.capo, 'capo', null, () => redraw(), toFloat, v => floatToString(v, 0)),
@@ -1147,15 +1154,13 @@
 
             switch(e.key.toLowerCase()) {
                 case 'h': { // Toggle controls visibility with 'h'
-                    applyClass(document.body, isDisplayed(doc.controlsWrapper), 'fullscreen');
-                    redraw({considerRefitting: !isDisplayed(doc.controlsWrapper)});
+                    fullscreen.enable(!fullscreen.isFullScreen());
                     break;
                 }
 
-                case 'f': { // Fit text to screen with 'f'
-                    document.body.classList.add('fullscreen');
+                case 'f': { // Hide controls, if visible, and fit text to screen with 'f'
                     data.fontSize.clearHashParam();
-                    redraw({considerRefitting: true});
+                    fullscreen.enable(true);
                     break;
                 }
 
@@ -1178,14 +1183,12 @@
         });
 
         doc.hideButton.addEventListener('click', () => {
-            document.body.classList.add('fullscreen');
-            redraw({considerRefitting: true});
+            fullscreen.enable(true);
         });
 
         doc.hideAndFitButton.addEventListener('click', () => {
-            document.body.classList.add('fullscreen');
             data.fontSize.clearHashParam();
-            redraw({considerRefitting: true});
+            fullscreen.enable(true);
         });
 
         if ("IntersectionObserver" in window &&
@@ -1201,17 +1204,13 @@
     </script>
 
     <script id="main">
-        // Initial title
         if (data.title.get()) {
             document.title = data.title.get();
         }
 
         if (data.text.get()) {
-            // Hide controls by default when text is passed via URL
-            document.body.classList.add('fullscreen')
-
-            // Render content
-            redraw({inferCapo: true, considerRefitting: true});
+            inferCapo();
+            fullscreen.enable(true); // this will also redraw
         }
     </script>
 </body>
