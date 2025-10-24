@@ -25,7 +25,7 @@
         .controls-wrapper {
             font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
             display: flex;
-            gap: 20px;
+            gap: 15px;
             padding-bottom: 10px;
             box-sizing: border-box;
             border-bottom: 1px solid #ddd;
@@ -36,41 +36,43 @@
         }
 
         .text-input-container {
-            flex: 2; /* Takes 2/3 of the space */
+            flex: 3; /* Takes 3/5 of the space */
         }
 
         .controls-container {
-            flex: 1; /* Takes 1/3 of the space */
+            flex: 2; /* Takes 2/5 of the space */
             display: flex;
             flex-direction: column;
             justify-content: space-between;
         }
 
         .controls {
-            margin-bottom: 10px;
+            margin-bottom: 5px;
             font-size: 12px;
         }
 
         .controls label {
             display: inline-block;
-            margin-top: 3px;
+            margin-top: 7px;
+            margin-right: 2px;
         }
 
         .controls input {
             width: 50px;
         }
 
-        .controls input.whole-number {
-            width: 40px;
-        }
-
         .controls input[type="checkbox"] {
             width: 13px;
+            margin-top: 8px;
         }
 
         .controls input, .controls select {
-            margin-top: 3px;
-            margin-right: 15px;
+            margin: 3px;
+        }
+
+        .controls button {
+            width: 100px;
+            margin: 3px;
         }
 
         .keyboard-shortcuts {
@@ -115,28 +117,30 @@
             padding-right: 10px;
         }
 
-        .has-horizontal-overflow-left::before {
+        .has-horizontal-overflow-left::before,
+        .has-horizontal-overflow-right::after {
             content: '';
             position: absolute;
-            top: 0;
-            bottom: 0;
-            left: -1000px;
+            top: -1px;
+            bottom: -5px;
             width: 1010px;
-            background: linear-gradient(to left, transparent, rgba(255,0,0,0.1) 0px, rgba(255,0,0,0.65) 15px, rgba(255,0,0,0.65) 100%);
             pointer-events: none;
             z-index: 1;
         }
 
+        .has-horizontal-overflow-left::before {
+            left: -1000px;
+            background: linear-gradient(to left, transparent, rgba(255,0,0,0.1) 0px, rgba(255,0,0,0.65) 15px, rgba(255,0,0,0.65) 100%);
+        }
+
         .has-horizontal-overflow-right::after {
-            content: '';
-            position: absolute;
-            top: 0;
-            bottom: 0;
             right: -1000px;
-            width: 1010px;
             background: linear-gradient(.25turn, transparent, rgba(255,0,0,0.1) 0px, rgba(255,0,0,0.65) 15px, rgba(255,0,0,0.65) 100%);
-            pointer-events: none;
-            z-index: 1;
+        }
+
+        .fullscreen .has-horizontal-overflow-left::before,
+        .fullscreen .has-horizontal-overflow-right::after {
+            top: -5px !important;
         }
 
         /* column separator */
@@ -228,6 +232,36 @@
             height: 1px;
             user-select: none;
         }
+
+        /* utilities */
+
+        .flex-row {
+            display: flex;
+            flex-direction: row;
+        }
+
+        .flex-column {
+            display: flex;
+            flex-direction: column;
+        }
+
+        .align-flex-end {
+            align-items: flex-end;
+        }
+
+        .flex1 { flex: 1; }
+        .flex2 { flex: 2; }
+        .flex3 { flex: 3; }
+        .flex4 { flex: 4; }
+        .flex5 { flex: 5; }
+        .flex6 { flex: 6; }
+        .flex7 { flex: 7; }
+        .flex8 { flex: 8; }
+        .flex9 { flex: 9; }
+        .flex10 { flex: 10; }
+        .flex11 { flex: 11; }
+        .flex12 { flex: 12; }
+        .flex13 { flex: 13; }
     </style>
 </head>
 <body>
@@ -237,39 +271,62 @@
         </div>
 
         <div class="controls-container">
-            <div class="controls">
-                <label for="fontSize">Font size (px):</label>
-                <input type="number" id="fontSize" min="8" max="22" value="15" step="0.2">
+            <div class="controls flex-row">
+                <div class="flex-column flex6 align-flex-end">
+                    <div class="flex-row">
+                        <label for="fontSize">Font size:</label>
+                        <input type="number" id="fontSize" min="8" max="22" value="15" step="0.2">
+                    </div>
 
-                <label for="preferredAccidental">Preferred accidental:</label>
-                <select id="preferredAccidental">
-                  <option value="#" selected>#</option>
-                  <option value="♯">♯ (stylized)</option>
-                  <option value="b">b</option>
-                  <option value="♭">♭ (stylized)</option>
-                </select>
+                    <div class="flex-row">
+                        <label for="transpose">Transpose:</label>
+                        <input type="number" id="transpose" min="-12" max="12" value="0">
+                    </div>
 
-                <br>
+                    <div class="flex-row">
+                        <label for="colorfulChords">Colorful chords:</label>
+                        <input type="checkbox" id="colorfulChords" value="true" checked>
+                    </div>
+                </div>
 
-                <label for="transpose">Transpose:</label>
-                <input type="number" id="transpose" min="-12" max="12" value="0">
+                <div class="flex-column flex6 align-flex-end">
+                    <div class="flex-row">
+                        <label for="padding">Padding:</label>
+                        <input type="number" id="padding" min="0" max="99" step="5" value="0">
+                    </div>
 
-                <label for="capo">Capo:</label>
-                <input class="whole-number" type="number" id="capo" min="0" max="12" value="0">
+                    <div class="flex-row">
+                        <label for="capo">Capo:</label>
+                        <input type="number" id="capo" min="0" max="12" value="0">
+                    </div>
 
-                <label for="capoAsWritten">Written with capo:</label>
-                <input class="whole-number" type="number" id="capoAsWritten" min="0" max="12" value="0">
+                    <div class="flex-row">
+                        <label for="colorfulHeaders">Colorful headers:</label>
+                        <input type="checkbox" id="colorfulHeaders" value="true" checked>
+                    </div>
+                </div>
 
-                <br>
+                <div class="flex-column flex10 align-flex-end">
+                    <div class="flex-row">
+                        <label for="preferredAccidental">Preferred accidental:</label>
+                        <select id="preferredAccidental">
+                            <option value="#" selected>#</option>
+                            <option value="♯">♯ (stylized)</option>
+                            <option value="b">b</option>
+                            <option value="♭">♭ (stylized)</option>
+                        </select>
+                    </div>
 
-                <label for="colorfulChords">Colorful chords:</label>
-                <input type="checkbox" id="colorfulChords" value="true" checked>
+                    <div class="flex-row">
+                        <label for="capoAsWritten">Written with capo:</label>
+                        <input type="number" id="capoAsWritten" min="0" max="12" value="0">
+                    </div>
 
-                <label for="colorfulHeaders">Colorful headers:</label>
-                <input type="checkbox" id="colorfulHeaders" value="true" checked>
-
-                <label for="padding">Padding:</label>
-                <input class="whole-number" type="number" id="padding" min="0" max="99" step="5" value="0">
+                    <div class="flex-row">
+                        <button id="hideAndFitButton" type="button">Hide & Fit</button>
+                        <button id="hideButton" type="button">Hide</button>
+                    </div>
+                </div>
             </div>
 
             <div class="keyboard-shortcuts">
@@ -301,7 +358,11 @@
 
         function setHashParam(param, value) {
             const hashParams = new URLSearchParams(window.location.hash && window.location.hash.substring(1) || '');
-            hashParams.set(param, value);
+            if (value == undefined) {
+                hashParams.delete(param);
+            } else {
+                hashParams.set(param, value);
+            }
             window.location.hash = '#' + hashParams.toString();
         }
 
@@ -541,7 +602,7 @@
             }
         }
 
-        function bindInputAndHash(element, hashParam, cookieStorageName, onChange, parse = (value => value), stringify = (value => value)) {
+        function bindData(element, hashParam, cookieStorageName, onChange, parse = (value => value), stringify = (value => value)) {
             let currentValue = parse('');
 
             function loadFromUrl() {
@@ -615,20 +676,22 @@
 
             if (element) {
                 element.addEventListener('input', () => {
+                    const previousValue = currentValue;
                     if (loadFromElement()) {
                         updateUrl();
                         updateCookie();
-                        onChange(currentValue);
+                        onChange(currentValue, previousValue);
                     }
                 });
             }
 
             if (hashParam) {
                 window.addEventListener('hashchange', () => {
+                    const previousValue = currentValue;
                     if (loadFromUrl()) {
                         updateElement();
                         updateCookie();
-                        onChange(currentValue);
+                        onChange(currentValue, previousValue);
                     }
                 });
             }
@@ -645,18 +708,19 @@
 
             return {
                 get: () => currentValue,
-                set: function(value) {
+                set: value => {
+                    const previousValue = currentValue;
                     currentValue = value;
                     updateElement();
                     updateUrl();
                     updateCookie();
-                    onChange(currentValue);
+                    onChange(currentValue, previousValue);
                 },
-                setElementValueSilently: function(value) {
+                setElementValueSilently: value => {
                     currentValue = value;
                     updateElement();
                 },
-                setSilentlyIfNotInUrl: function(value) {
+                setSilentlyIfNotInUrl: value => {
                     if (!(hashParam && getHashParam(hashParam) != undefined)) {
                         currentValue = value;
                         updateElement();
@@ -839,7 +903,7 @@
             }
         }
 
-        function inferCapo(text) {
+        function inferCapoFromText(text) {
             const lines = text.split('\n');
 
             for (let i = 0; i < lines.length; i++) {
@@ -891,89 +955,29 @@
         }
     </script>
 
-    <script id="main">
-        const doc = {};
-        document.querySelectorAll('[id]').forEach(node => doc[node.id] = node);
-
-        const text = bindInputAndHash(doc.inputText, 'text', null, updateContent);
-        const fontSize = bindInputAndHash(doc.fontSize, 'fontSize', null, updateContent, toFloat, v => floatToString(v, 1));
-        const transpose = bindInputAndHash(doc.transpose, 'transpose', null, updateContent, toFloat, v => floatToString(v, 0));
-        const capo = bindInputAndHash(doc.capo, 'capo', null, updateContent, toFloat, v => floatToString(v, 0));
-        const capoAsWritten = bindInputAndHash(doc.capoAsWritten, 'capoAsWritten', null, updateContent, toFloat, v => floatToString(v, 0));
-        const preferredAccidental = bindInputAndHash(doc.preferredAccidental, 'preferredAccidental', 'db:preferredAccidental', updateContent);
-        const colorfulChords = bindInputAndHash(doc.colorfulChords, 'colorfulChords', 'db:colorfulChords', updateContent, toBoolean, toString);
-        const colorfulHeaders = bindInputAndHash(doc.colorfulHeaders, 'colorfulHeaders', 'db:colorfulHeaders', updateContent, toBoolean, toString);
-        const padding = bindInputAndHash(doc.padding, 'padding', 'db:padding', updateContent, toFloat, v => floatToString(v, 0));
-        const title = bindInputAndHash(null, 'title', null, value => document.title = value);
-
-        // Initial title
-        document.title = title.get() || 'Chord Projector';
-
-        // Hide controls by default when text is passed via URL
-        applyClass(document.body, text.get(), 'fullscreen');
-
-        if (text.get() && getHashParam('fontSize') == undefined) {
-            updateContentAndFitToScreen();
-        } else {
-            updateContent();
-        }
-
-        function updateContentAndFitToScreen() {
-            const defaultSize = fontSize.get();
-
-            const fontSizes = [];
-            for (let size = parseFloat(doc.fontSize.min);
-                 size <= parseFloat(doc.fontSize.max);
-                 size = roundFloat(size + parseFloat(doc.fontSize.step), 1)) {
-
-                fontSizes.push(size);
-            }
-
-            let low = 0;
-            let high = fontSizes.length - 1;
-            let highestFit = 0;
-
-            while (low <= high) {
-                const i = Math.floor((low + high) / 2);
-                fontSize.setElementValueSilently(fontSizes[i]);
-
-                if (updateContent()) { // updateContent returns true if it fits
-                    low = i + 1;
-                    highestFit = Math.max(highestFit, fontSizes[i]);
-                } else {
-                    high = i - 1;
-                }
-            }
-
-            fontSize.setElementValueSilently(highestFit > 0 ? highestFit : defaultSize);
-            updateContent();
-        }
-
-        function updateContent() {
+    <script id="renderingFunctions">
+        function redrawContent() {
             doc.content.innerHTML = '';
-            doc.contentWrapper.style.margin = padding.get() + 'px';
-            doc.content.style.fontSize = fontSize.get() + 'px';
+            doc.content.style.fontSize = data.fontSize.get() + 'px';
 
-            applyClass(doc.content, colorfulChords.get(), 'colorful-chords');
-            applyClass(doc.content, colorfulHeaders.get(), 'colorful-headers');
+            doc.contentWrapper.style.padding = `${data.padding.get()}px 0px`;
+            doc.contentWrapper.style.margin = `0px ${data.padding.get()}px`;
 
-            const inferredCapo = inferCapo(text.get());
-            if (capoAsWritten.setSilentlyIfNotInUrl(inferredCapo)) {
-                capo.setSilentlyIfNotInUrl(inferredCapo);
-            }
+            applyClass(doc.content, data.colorfulChords.get(), 'colorful-chords');
+            applyClass(doc.content, data.colorfulHeaders.get(), 'colorful-headers');
 
             const availableHeight = elementSize(doc.content, {includePadding: false, includeMargin: false}).height;
             const availableWidth = elementSize(doc.contentContainer, {includePadding: false, includeMargin: false}).width -
                                    elementSize(doc.leftEdgePixelAnchor).width -
                                    elementSize(doc.rightEdgePixelAnchor).width;
 
-            const lines = parseLines(text.get());
+            const lines = parseLines(data.text.get());
             const lineElements = lines.map((line, i) => createLineHtmlElement(line,
                                                                               lines[i+1],
-                                                                              capoAsWritten.get(),
-                                                                              transpose.get(),
-                                                                              capo.get(),
-                                                                              preferredAccidental.get()));
+                                                                              data.capoAsWritten.get(),
+                                                                              data.transpose.get(),
+                                                                              data.capo.get(),
+                                                                              data.preferredAccidental.get()));
 
             const columns = [];
             let currentColumn = null;
@@ -1038,10 +1042,87 @@
 
             return elementSize(doc.content).width <= availableWidth;
         }
+
+        function redrawContentAndFitToScreen() {
+            const defaultSize = data.fontSize.get();
+
+            const fontSizes = [];
+            for (let size = parseFloat(doc.fontSize.min);
+                 size <= parseFloat(doc.fontSize.max);
+                 size = roundFloat(size + parseFloat(doc.fontSize.step), 1)) {
+
+                fontSizes.push(size);
+            }
+
+            let low = 0;
+            let high = fontSizes.length - 1;
+            let highestFit = 0;
+
+            while (low <= high) {
+                const i = Math.floor((low + high) / 2);
+                data.fontSize.setElementValueSilently(fontSizes[i]);
+
+                if (redrawContent()) { // returns true if the text fits on the screen
+                    low = i + 1;
+                    highestFit = Math.max(highestFit, fontSizes[i]);
+                } else {
+                    high = i - 1;
+                }
+            }
+
+            data.fontSize.setElementValueSilently(highestFit > 0 ? highestFit : defaultSize);
+            redrawContent();
+        }
+
+        function redraw(options = {}) {
+            const { inferCapo = false, considerRefitting = false } = options;
+
+            if (inferCapo) {
+                const inferredCapo = inferCapoFromText(data.text.get());
+                if (data.capoAsWritten.setSilentlyIfNotInUrl(inferredCapo)) {
+                    data.capo.setSilentlyIfNotInUrl(inferredCapo);
+                }
+            }
+
+            if (considerRefitting &&
+                data.text.get() && data.text.get().length >= 100 &&
+                getHashParam('fontSize') == undefined) {
+
+                const controlsWereDisplayed = isDisplayed(doc.controlsWrapper);
+                document.body.classList.add('fullscreen');
+
+                redrawContentAndFitToScreen();
+
+                if (controlsWereDisplayed) {
+                    document.body.classList.remove('fullscreen');
+                    redrawContent();
+                }
+            } else {
+                redrawContent();
+            }
+        }
     </script>
 
-    <script id="setupEventListeners">
-        window.addEventListener('resize', updateContent);
+    <script id="dataBindings">
+        const doc = {};
+        document.querySelectorAll('[id]').forEach(element => doc[element.id] = element);
+
+        const data = {
+            text: bindData(doc.inputText, 'text', null, (currentValue, previousValue) => redraw({inferCapo: true, considerRefitting: !previousValue})),
+            fontSize: bindData(doc.fontSize, 'fontSize', null, () => redraw(), toFloat, v => floatToString(v, 1)),
+            transpose: bindData(doc.transpose, 'transpose', null, () => redraw(), toFloat, v => floatToString(v, 0)),
+            capo: bindData(doc.capo, 'capo', null, () => redraw(), toFloat, v => floatToString(v, 0)),
+            capoAsWritten: bindData(doc.capoAsWritten, 'capoAsWritten', null, () => redraw(), toFloat, v => floatToString(v, 0)),
+            preferredAccidental: bindData(doc.preferredAccidental, 'preferredAccidental', 'db:preferredAccidental', () => redraw()),
+            colorfulChords: bindData(doc.colorfulChords, 'colorfulChords', 'db:colorfulChords', () => redraw(), toBoolean, toString),
+            colorfulHeaders: bindData(doc.colorfulHeaders, 'colorfulHeaders', 'db:colorfulHeaders', () => redraw(), toBoolean, toString),
+            padding: bindData(doc.padding, 'padding', 'db:padding', () => redraw(), toFloat, v => floatToString(v, 0)),
+            title: bindData(null, 'title', null, value => document.title = value)
+        };
+    </script>
+
+    <script id="eventListenersSetup">
+        window.addEventListener('resize', () => redraw());
 
         // Add keyboard shortcuts
         document.addEventListener('keydown', function(e) {
@@ -1054,18 +1135,29 @@
 
             if (e.key.toLowerCase() === 'h') { // Toggle controls visibility with 'h'
                 applyClass(document.body, isDisplayed(doc.controlsWrapper), 'fullscreen');
-                updateContent();
+                redraw({considerRefitting: !isDisplayed(doc.controlsWrapper)});
             } else if (e.key.toLowerCase() === 'n') { // Decrease font size with 'n'
-                const newSize = roundFloat(fontSize.get() - parseFloat(doc.fontSize.step), 1);
+                const newSize = roundFloat(data.fontSize.get() - parseFloat(doc.fontSize.step), 1);
                 if (newSize >= parseFloat(doc.fontSize.min)) {
-                    fontSize.set(newSize);
+                    data.fontSize.set(newSize);
                 }
             } else if (e.key.toLowerCase() === 'm') { // Increase font size with 'm'
-                const newSize = roundFloat(fontSize.get() + parseFloat(doc.fontSize.step), 1);
+                const newSize = roundFloat(data.fontSize.get() + parseFloat(doc.fontSize.step), 1);
                 if (newSize <= parseFloat(doc.fontSize.max)) {
-                    fontSize.set(newSize);
+                    data.fontSize.set(newSize);
                 }
             }
+        });
+
+        doc.hideButton.addEventListener('click', () => {
+            document.body.classList.add('fullscreen');
+            redraw({considerRefitting: true});
+        });
+
+        doc.hideAndFitButton.addEventListener('click', () => {
+            document.body.classList.add('fullscreen');
+            setHashParam('fontSize', undefined);
+            redraw({considerRefitting: true});
         });
 
         if ("IntersectionObserver" in window &&
@@ -1077,6 +1169,21 @@
 
             new IntersectionObserver(entries => applyClass(doc.contentContainer, !entries[0].isIntersecting, 'has-horizontal-overflow-right'))
                 .observe(doc.rightEdgePixelAnchor);
+        }
+    </script>
+
+    <script id="main">
+        // Initial title
+        if (data.title.get()) {
+            document.title = data.title.get();
+        }
+
+        if (data.text.get()) {
+            // Hide controls by default when text is passed via URL
+            document.body.classList.add('fullscreen')
+
+            // Render content
+            redraw({inferCapo: true, considerRefitting: true});
         }
     </script>
 </body>
