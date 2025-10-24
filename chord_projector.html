@@ -267,7 +267,7 @@
 <body>
     <div id="controlsWrapper" class="controls-wrapper">
         <div class="text-input-container">
-            <textarea id="inputText" placeholder="Enter your text here..."></textarea>
+            <textarea id="text" placeholder="Enter your text here..."></textarea>
         </div>
 
         <div class="controls-container">
@@ -447,11 +447,6 @@
             return value == undefined ? '' : value.toFixed(precision);
         }
 
-        function roundFloat(value, precision) {
-            const factor = Math.pow(10, precision);
-            return Math.round((value + Number.EPSILON) * factor) / factor;
-        }
-
         function toFloat(value) {
             const result = parseFloat(value);
             return isNaN(result) ? undefined : result;
@@ -459,10 +454,6 @@
 
         function toBoolean(value) {
             return value === true || value === 'true';
-        }
-
-        function coalesce(value, defaultValue) {
-            return value == undefined ? defaultValue : value;
         }
 
         function isEmpty(str) {
@@ -725,6 +716,74 @@
                 }
             }
         }
+
+        function autoBind(bindings, onUpdate, parse, stringify) {
+            let { el, hash, cookie } = bindings;
+
+            const identifier = el && (el.name || el.id);
+            if (hash === true && identifier) {
+                hash = identifier;
+            }
+            if (cookie === true && identifier) {
+                cookie = "db:" + identifier;
+            }
+
+            let enrich = {};
+
+            if (el && el.nodeName == 'INPUT' && el.type == 'checkbox') {
+                parse = parse ?? toBoolean;
+                stringify = stringify ?? toString;
+            } else if (el && el.nodeName == 'INPUT' && el.type == 'number') {
+                const stepAttr = el.step || '1';
+                const [whole, decimal] = stepAttr.split('.');
+                const precision = decimal ? decimal.length : 0;
+
+                parse = parse ?? toFloat;
+                stringify = stringify ?? (v => floatToString(v, precision));
+
+                enrich = {
+                    min: toFloat(el.min),
+                    max: toFloat(el.max),
+                    step: toFloat(stepAttr),
+                    precision: precision,
+
+                    increase: function() {
+                        const newValue = this.get() + this.step;
+                        if (this.max == undefined || newValue <= this.max) {
+                            this.set(newValue)
+                        }
+                    },
+
+                    decrease: function() {
+                        const newValue = this.get() - this.step;
+                        if (this.min == undefined || newValue >= this.min) {
+                            this.set(newValue)
+                        }
+                    }
+                }
+            }
+
+            return {...bindData(el, hash, cookie, onUpdate, parse, stringify), ...enrich};
+        }
+
+        function findFloorUsingBinarySearch(low, high, step, computeFunc, comparisonFunc) {
+            let result = undefined;
+
+            while (low <= high) {
+                const i = low + Math.floor((high - low) / step / 2) * step;
+                const value = computeFunc(i);
+                const comparisonResult = comparisonFunc(value);
+
+                if (comparisonResult <= 0) {
+                    result = value;
+                    low = i + step;
+                } else {
+                    high = i - step;
+                }
+            }
+
+            return result;
+        }
     </script>
 
     <script id="domainFunctions">
@@ -820,16 +879,16 @@
 
         function processChord(chord, capoAsWritten, transpose, capo, preferredAccidental) {
             function processNote(note) {
-                let degree = noteChart.noteDegrees[note[0]] + (noteChart.accidentals[note[1]] || 0);
+                let degree = noteChart.noteDegrees[note[0]] + (noteChart.accidentals[note[1]] ?? 0);
 
-                degree += coalesce(transpose, 0) - coalesce(capo, 0) + capoAsWritten;
+                degree += (transpose ?? 0) - (capo ?? 0) + capoAsWritten;
 
                 degree %= 12;
                 if (degree < 0) {
                     degree += 12;
                 }
 
-                return noteChart.notes[coalesce(preferredAccidental, '♯')][degree]; // ♭ b ♯ #
+                return noteChart.notes[preferredAccidental ?? '♯'][degree]; // ♭ b ♯ #
             }
 
             if (!chord.root) {
@@ -904,7 +963,7 @@
             for (let i = 0; i < lines.length; i++) {
                 const capoMetadata = matchFirst(regexes.capoMetadata, lines[i]);
                 if (capoMetadata) {
-                    return coalesce(toFloat(capoMetadata.groups.capo), 0);
+                    return toFloat(capoMetadata.groups.capo) ?? 0;
                 }
 
                 if (!isWhitespace(lines[i])) {
@@ -947,30 +1006,6 @@
             }
 
             return result;
-        }
-
-        function findMaxFontSizeThatFitsContentToScreen(minFontSize, maxFontSize, fontSizeStep, testFunc) {
-            const fontSizes = [];
-            for (let size = minFontSize; size <= maxFontSize; size = roundFloat(size + fontSizeStep, 1)) {
-                fontSizes.push(size);
-            }
-
-            let low = 0;
-            let high = fontSizes.length - 1;
-            let highestFit = 0;
-
-            while (low <= high) {
-                const i = Math.floor((low + high) / 2);
-
-                if (testFunc(fontSizes[i])) {
-                    low = i + 1;
-                    highestFit = Math.max(highestFit, fontSizes[i]);
-                } else {
-                    high = i - 1;
-                }
-            }
-
-            return highestFit > 0 ? highestFit : undefined;
         }
     </script>
 
@@ -1066,22 +1101,23 @@
 
             if (shouldRefit) {
                 fullscreen.withTemporaryFullscreen(() => {
+                    const defaultFontSize = data.fontSize.get();
+
                     const availableWidth = elementSize(doc.contentContainer, {includePadding: false, includeMargin: false}).width -
                                            elementSize(doc.leftEdgePixelAnchor).width -
                                            elementSize(doc.rightEdgePixelAnchor).width;
 
-                    const defaultFontSize = data.fontSize.get();
-
-                    const fittingFontSize = findMaxFontSizeThatFitsContentToScreen(
-                        parseFloat(doc.fontSize.min),
-                        parseFloat(doc.fontSize.max),
-                        parseFloat(doc.fontSize.step),
+                    const result = findFloorUsingBinarySearch(
+                        data.fontSize.min,
+                        data.fontSize.max,
+                        data.fontSize.step,
                         fontSize => {
                             data.fontSize.setElementValueSilently(fontSize);
-                            return redrawContent() < availableWidth;
-                        });
+                            return {fontSize, contentWidth: redrawContent()};
+                        },
+                        value => value.contentWidth - availableWidth);
 
-                    data.fontSize.setElementValueSilently(fittingFontSize ?? defaultFontSize);
+                    data.fontSize.setElementValueSilently(result?.fontSize ?? defaultFontSize);
                 });
             }
 
@@ -1106,8 +1142,8 @@
                 redraw(value);
             },
 
-            withTemporaryFullscreen: (action) => {
-                const wasFullscreen = fullscreen.isFullScreen();
+            withTemporaryFullscreen: function(action) {
+                const wasFullscreen = this.isFullScreen();
                 document.body.classList.add('fullscreen');
 
                 action();
@@ -1124,19 +1160,19 @@
         document.querySelectorAll('[id]').forEach(element => doc[element.id] = element);
 
         const data = {
-            text: bindData(doc.inputText, 'text', null, (_, previousValue) => {
+            text: autoBind({el: doc.text, hash: true}, (_, previousValue) => {
                 inferCapo();
                 redraw(!previousValue);
             }),
-            fontSize: bindData(doc.fontSize, 'fontSize', null, () => redraw(), toFloat, v => floatToString(v, 1)),
-            transpose: bindData(doc.transpose, 'transpose', null, () => redraw(), toFloat, v => floatToString(v, 0)),
-            capo: bindData(doc.capo, 'capo', null, () => redraw(), toFloat, v => floatToString(v, 0)),
-            capoAsWritten: bindData(doc.capoAsWritten, 'capoAsWritten', null, () => redraw(), toFloat, v => floatToString(v, 0)),
-            preferredAccidental: bindData(doc.preferredAccidental, 'preferredAccidental', 'db:preferredAccidental', () => redraw()),
-            colorfulChords: bindData(doc.colorfulChords, 'colorfulChords', 'db:colorfulChords', () => redraw(), toBoolean, toString),
-            colorfulHeaders: bindData(doc.colorfulHeaders, 'colorfulHeaders', 'db:colorfulHeaders', () => redraw(), toBoolean, toString),
-            padding: bindData(doc.padding, 'padding', 'db:padding', () => redraw(), toFloat, v => floatToString(v, 0)),
-            title: bindData(null, 'title', null, value => document.title = value)
+            fontSize: autoBind({el: doc.fontSize, hash: true}, () => redraw()),
+            transpose: autoBind({el: doc.transpose, hash: true}, () => redraw()),
+            capo: autoBind({el: doc.capo, hash: true}, () => redraw()),
+            capoAsWritten: autoBind({el: doc.capoAsWritten, hash: true}, () => redraw()),
+            preferredAccidental: autoBind({el: doc.preferredAccidental, hash: true, cookie: true}, () => redraw()),
+            colorfulChords: autoBind({el: doc.colorfulChords, hash: true, cookie: true}, () => redraw()),
+            colorfulHeaders: autoBind({el: doc.colorfulHeaders, hash: true, cookie: true}, () => redraw()),
+            padding: autoBind({el: doc.padding, hash: true, cookie: true}, () => redraw()),
+            title: autoBind({hash: 'title'}, value => document.title = value)
         };
     </script>
 
@@ -1165,18 +1201,12 @@
                 }
 
                 case 'n': { // Decrease font size with 'n'
-                    const newSize = roundFloat(data.fontSize.get() - parseFloat(doc.fontSize.step), 1);
-                    if (newSize >= parseFloat(doc.fontSize.min)) {
-                        data.fontSize.set(newSize);
-                    }
+                    data.fontSize.decrease();
                     break;
                 }
 
                 case 'm': { // Increase font size with 'm'
-                    const newSize = roundFloat(data.fontSize.get() + parseFloat(doc.fontSize.step), 1);
-                    if (newSize <= parseFloat(doc.fontSize.max)) {
-                        data.fontSize.set(newSize);
-                    }
+                    data.fontSize.increase();
                     break;
                 }
             }
