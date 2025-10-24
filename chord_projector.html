@@ -590,134 +590,7 @@
             }
         }
 
-        function bindData(element, hashParam, cookieStorageName, onChange, parse = (value => value), stringify = (value => value)) {
-            let currentValue = parse('');
-
-            function loadFromUrl() {
-                const value = getHashParam(hashParam);
-
-                if (value != undefined) {
-                    const parsedValue = parse(value);
-                    if (parsedValue !== currentValue) {
-                        currentValue = parsedValue;
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-
-            function loadFromCookie() {
-                const value = getValueFromCookieDb(cookieStorageName)
-
-                if (value != undefined) {
-                    const parsedValue = parse(value);
-                    if (parsedValue !== currentValue) {
-                        currentValue = parsedValue;
-                        return true;
-                    }
-                }
-
-                return false;
-            }
-
-            function loadFromElement() {
-                const rawValue = element.nodeName === 'INPUT' && element.type === 'checkbox' ? (element.checked ? element.value : '') : element.value;
-                const parsedValue = parse(rawValue);
-
-                if (parsedValue !== currentValue) {
-                    currentValue = parsedValue;
-                    return true;
-                }
-
-                return false;
-            }
-
-            function updateUrl() {
-                if (hashParam) {
-                    const existingHashValue = getHashParam(hashParam);
-                    const stringifiedCurrentValue = stringify(currentValue);
-
-                    if (!existingHashValue || stringifiedCurrentValue !== existingHashValue) {
-                        setHashParam(hashParam, stringifiedCurrentValue);
-                    }
-                }
-            }
-
-            function updateCookie() {
-                if (cookieStorageName) {
-                    const stringifiedCurrentValue = stringify(currentValue);
-                    setValueInCookieDb(cookieStorageName, stringifiedCurrentValue);
-                }
-            }
-
-            function updateElement() {
-                if (element) {
-                    const stringifiedCurrentValue = stringify(currentValue);
-                    if (element.nodeName === 'INPUT' && element.type === 'checkbox') {
-                        element.checked = element.value === stringifiedCurrentValue;
-                    } else {
-                        element.value = stringifiedCurrentValue;
-                    }
-                }
-            }
-
-            if (element) {
-                element.addEventListener('input', () => {
-                    const previousValue = currentValue;
-                    if (loadFromElement()) {
-                        updateUrl();
-                        updateCookie();
-                        onChange(currentValue, previousValue);
-                    }
-                });
-            }
-
-            if (hashParam) {
-                window.addEventListener('hashchange', () => {
-                    const previousValue = currentValue;
-                    if (loadFromUrl()) {
-                        updateElement();
-                        updateCookie();
-                        onChange(currentValue, previousValue);
-                    }
-                });
-            }
-
-            if (hashParam && getHashParam(hashParam) != undefined) {
-                loadFromUrl();
-                updateElement();
-            } else if (cookieStorageName && getValueFromCookieDb(cookieStorageName) != undefined) {
-                loadFromCookie();
-                updateElement();
-            } else if (element) {
-                loadFromElement();
-            }
-
-            return {
-                get: () => currentValue,
-                set: value => {
-                    const previousValue = currentValue;
-                    currentValue = value;
-                    updateElement();
-                    updateUrl();
-                    updateCookie();
-                    onChange(currentValue, previousValue);
-                },
-                setElementValueSilently: value => {
-                    currentValue = value;
-                    updateElement();
-                },
-                hasHashParam: () => hashParam && getHashParam(hashParam) != undefined,
-                clearHashParam: () => {
-                    if (hashParam) {
-                        setHashParam(hashParam, undefined);
-                    }
-                }
-            }
-        }
-
-        function autoBind(bindings, onUpdate, parse, stringify) {
+        function bindData(bindings, onChange, parse, stringify) {
             let { el, hash, cookie } = bindings;
 
             const identifier = el && (el.name || el.id);
@@ -728,7 +601,7 @@
                 cookie = "db:" + identifier;
             }
 
-            let enrich = {};
+            let typeSpecificMethods = {};
 
             if (el && el.nodeName == 'INPUT' && el.type == 'checkbox') {
                 parse = parse ?? toBoolean;
@@ -741,7 +614,7 @@
                 parse = parse ?? toFloat;
                 stringify = stringify ?? (v => floatToString(v, precision));
 
-                enrich = {
+                typeSpecificMethods = {
                     min: toFloat(el.min),
                     max: toFloat(el.max),
                     step: toFloat(stepAttr),
@@ -761,9 +634,141 @@
                         }
                     }
                 }
+            } else {
+                parse = parse ?? (value => value);
+                stringify = stringify ?? (value => value)
             }
 
-            return {...bindData(el, hash, cookie, onUpdate, parse, stringify), ...enrich};
+            let currentValue = parse('');
+
+            function loadFromUrl() {
+                const value = getHashParam(hash);
+
+                if (value != undefined) {
+                    const parsedValue = parse(value);
+                    if (parsedValue !== currentValue) {
+                        currentValue = parsedValue;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            function loadFromCookie() {
+                const value = getValueFromCookieDb(cookie)
+
+                if (value != undefined) {
+                    const parsedValue = parse(value);
+                    if (parsedValue !== currentValue) {
+                        currentValue = parsedValue;
+                        return true;
+                    }
+                }
+
+                return false;
+            }
+
+            function loadFromElement() {
+                const rawValue = el.nodeName === 'INPUT' && el.type === 'checkbox' ? (el.checked ? el.value : '') : el.value;
+                const parsedValue = parse(rawValue);
+
+                if (parsedValue !== currentValue) {
+                    currentValue = parsedValue;
+                    return true;
+                }
+
+                return false;
+            }
+
+            function updateUrl() {
+                if (hash) {
+                    const existingHashValue = getHashParam(hash);
+                    const stringifiedCurrentValue = stringify(currentValue);
+
+                    if (!existingHashValue || stringifiedCurrentValue !== existingHashValue) {
+                        setHashParam(hash, stringifiedCurrentValue);
+                    }
+                }
+            }
+
+            function updateCookie() {
+                if (cookie) {
+                    const stringifiedCurrentValue = stringify(currentValue);
+                    setValueInCookieDb(cookie, stringifiedCurrentValue);
+                }
+            }
+
+            function updateElement() {
+                if (el) {
+                    const stringifiedCurrentValue = stringify(currentValue);
+                    if (el.nodeName === 'INPUT' && el.type === 'checkbox') {
+                        el.checked = el.value === stringifiedCurrentValue;
+                    } else {
+                        el.value = stringifiedCurrentValue;
+                    }
+                }
+            }
+
+            if (el) {
+                el.addEventListener('input', () => {
+                    const previousValue = currentValue;
+                    if (loadFromElement()) {
+                        updateUrl();
+                        updateCookie();
+                        onChange(currentValue, previousValue);
+                    }
+                });
+            }
+
+            if (hash) {
+                window.addEventListener('hashchange', () => {
+                    const previousValue = currentValue;
+                    if (loadFromUrl()) {
+                        updateElement();
+                        updateCookie();
+                        onChange(currentValue, previousValue);
+                    }
+                });
+            }
+
+            if (hash && getHashParam(hash) != undefined) {
+                loadFromUrl();
+                updateElement();
+            } else if (cookie && getValueFromCookieDb(cookie) != undefined) {
+                loadFromCookie();
+                updateElement();
+            } else if (el) {
+                loadFromElement();
+            }
+
+            return {
+                get: () => currentValue,
+
+                set: value => {
+                    const previousValue = currentValue;
+                    currentValue = value;
+                    updateElement();
+                    updateUrl();
+                    updateCookie();
+                    onChange(currentValue, previousValue);
+                },
+
+                setElementValueSilently: value => {
+                    currentValue = value;
+                    updateElement();
+                },
+
+                hasHashParam: () => hash && getHashParam(hash) != undefined,
+
+                clearHashParam: () => {
+                    if (hash) {
+                        setHashParam(hash, undefined);
+                    }
+                },
+
+                ...typeSpecificMethods
+            }
         }
 
         function findFloorUsingBinarySearch(low, high, step, computeFunc, comparisonFunc) {
@@ -1160,19 +1165,16 @@
         document.querySelectorAll('[id]').forEach(element => doc[element.id] = element);
 
         const data = {
-            text: autoBind({el: doc.text, hash: true}, (_, previousValue) => {
-                inferCapo();
-                redraw(!previousValue);
-            }),
-            fontSize: autoBind({el: doc.fontSize, hash: true}, () => redraw()),
-            transpose: autoBind({el: doc.transpose, hash: true}, () => redraw()),
-            capo: autoBind({el: doc.capo, hash: true}, () => redraw()),
-            capoAsWritten: autoBind({el: doc.capoAsWritten, hash: true}, () => redraw()),
-            preferredAccidental: autoBind({el: doc.preferredAccidental, hash: true, cookie: true}, () => redraw()),
-            colorfulChords: autoBind({el: doc.colorfulChords, hash: true, cookie: true}, () => redraw()),
-            colorfulHeaders: autoBind({el: doc.colorfulHeaders, hash: true, cookie: true}, () => redraw()),
-            padding: autoBind({el: doc.padding, hash: true, cookie: true}, () => redraw()),
-            title: autoBind({hash: 'title'}, value => document.title = value)
+            text: bindData({el: doc.text, hash: true}, (_, previousValue) => { inferCapo(); redraw(!previousValue); }),
+            fontSize: bindData({el: doc.fontSize, hash: true}, () => redraw()),
+            transpose: bindData({el: doc.transpose, hash: true}, () => redraw()),
+            capo: bindData({el: doc.capo, hash: true}, () => redraw()),
+            capoAsWritten: bindData({el: doc.capoAsWritten, hash: true}, () => redraw()),
+            preferredAccidental: bindData({el: doc.preferredAccidental, hash: true, cookie: true}, () => redraw()),
+            colorfulChords: bindData({el: doc.colorfulChords, hash: true, cookie: true}, () => redraw()),
+            colorfulHeaders: bindData({el: doc.colorfulHeaders, hash: true, cookie: true}, () => redraw()),
+            padding: bindData({el: doc.padding, hash: true, cookie: true}, () => redraw()),
+            title: bindData({hash: 'title'}, value => document.title = value)
         };
     </script>
 
@@ -1219,6 +1221,12 @@
         doc.hideAndFitButton.addEventListener('click', () => {
             data.fontSize.clearHashParam();
             fullscreen.enable(true);
+        });
+
+        doc.contentContainer.addEventListener('dblclick', event => {
+            if (fullscreen.isFullScreen()) {
+                fullscreen.enable(false);
+            }
         });
 
         if ("IntersectionObserver" in window &&
