@@ -720,13 +720,11 @@
                     currentValue = value;
                     updateElement();
                 },
-                setSilentlyIfNotInUrl: value => {
-                    if (!(hashParam && getHashParam(hashParam) != undefined)) {
-                        currentValue = value;
-                        updateElement();
-                        return true;
+                hasHashParam: () => hashParam && getHashParam(hashParam) != undefined,
+                clearHashParam: () => {
+                    if (hashParam) {
+                        setHashParam(hashParam, undefined);
                     }
-                    return false;
                 }
             }
         }
@@ -1079,14 +1077,17 @@
 
             if (inferCapo) {
                 const inferredCapo = inferCapoFromText(data.text.get());
-                if (data.capoAsWritten.setSilentlyIfNotInUrl(inferredCapo)) {
-                    data.capo.setSilentlyIfNotInUrl(inferredCapo);
+                if (!data.capoAsWritten.hasHashParam()) {
+                    data.capoAsWritten.setElementValueSilently(inferredCapo);
+                    if (!data.capo.hasHashParam()) {
+                        data.capo.setElementValueSilently(inferredCapo);
+                    }
                 }
             }
 
             if (considerRefitting &&
                 data.text.get() && data.text.get().length >= 100 &&
-                getHashParam('fontSize') == undefined) {
+                !data.fontSize.hasHashParam()) {
 
                 const controlsWereDisplayed = isDisplayed(doc.controlsWrapper);
                 document.body.classList.add('fullscreen');
@@ -1156,7 +1157,7 @@
 
         doc.hideAndFitButton.addEventListener('click', () => {
             document.body.classList.add('fullscreen');
-            setHashParam('fontSize', undefined);
+            data.fontSize.clearHashParam();
             redraw({considerRefitting: true});
         });
 
