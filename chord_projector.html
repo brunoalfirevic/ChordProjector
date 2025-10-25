@@ -771,6 +771,36 @@
             }
         }
 
+        function getEffectiveTextAreaSelection(element) {
+            return element.selectionDirection == 'backward' ?
+                {start: element.selectionEnd, end: element.selectionStart} :
+                {start: element.selectionStart, end: element.selectionEnd};
+        }
+
+        function setTextAreaSelection(element, start, end) {
+            const currentSelection = getEffectiveTextAreaSelection(element);
+            start = start ?? currentSelection.start;
+            end = end ?? currentSelection.end;
+
+            element.selectionStart = Math.min(start, end);
+            element.selectionEnd = Math.max(start, end);
+            element.selectionDirection = start < end ? 'forward' :
+                                            start > end ? 'backward' :
+                                            'none';
+        }
+
+        function getStartOfLinePositionForTextAreaCaret(element) {
+            const selectionEnd = getEffectiveTextAreaSelection(element).end;
+            const previousLineEnd = element.value.lastIndexOf("\n", selectionEnd - 1);
+            return previousLineEnd >= 0 ? previousLineEnd + 1 : 0;
+        }
+
+        function getEndOfLinePositionForTextAreaCaret(element) {
+            const selectionEnd = getEffectiveTextAreaSelection(element).end;
+            const lineEnd = element.value.indexOf("\n", selectionEnd);
+            return lineEnd >= 0 ? lineEnd : element.value.length;
+        }
+
         function findFloorUsingBinarySearch(low, high, step, computeFunc, comparisonFunc) {
             let result = undefined;
 
@@ -1226,6 +1256,24 @@
         doc.contentContainer.addEventListener('dblclick', event => {
             if (fullscreen.isFullScreen()) {
                 fullscreen.enable(false);
+            }
+        });
+
+        doc.text.addEventListener('keydown', e => {
+            switch(e.key.toLowerCase()) {
+                case 'home': {
+                    const startOfLine = getStartOfLinePositionForTextAreaCaret(event.target)
+                    setTextAreaSelection(event.target, event.shiftKey ? undefined : startOfLine, startOfLine);
+                    e.preventDefault();
+                    break;
+                }
+
+                case 'end': {
+                    const endOfLine = getEndOfLinePositionForTextAreaCaret(event.target);
+                    setTextAreaSelection(event.target, event.shiftKey ? undefined : endOfLine, endOfLine);
+                    e.preventDefault();
+                    break;
+                }
             }
         });
 
