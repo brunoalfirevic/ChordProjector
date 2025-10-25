@@ -275,7 +275,7 @@
                 <div class="flex-column flex6 align-flex-end">
                     <div class="flex-row">
                         <label for="fontSize">Font size:</label>
-                        <input type="number" id="fontSize" min="8" max="22" value="15" step="0.2">
+                        <input type="number" id="fontSize" min="8" max="24" value="15" step="0.2">
                     </div>
 
                     <div class="flex-row">
@@ -452,6 +452,11 @@
             return isNaN(result) ? undefined : result;
         }
 
+        function roundFloat(value, precision) {
+            const factor = Math.pow(10, precision);
+            return Math.round((value + Number.EPSILON) * factor) / factor;
+        }
+
         function toBoolean(value) {
             return value === true || value === 'true';
         }
@@ -621,14 +626,14 @@
                     precision: precision,
 
                     increase: function() {
-                        const newValue = this.get() + this.step;
+                        const newValue = roundFloat(this.get() + this.step, this.precision);
                         if (this.max == undefined || newValue <= this.max) {
                             this.set(newValue)
                         }
                     },
 
                     decrease: function() {
-                        const newValue = this.get() - this.step;
+                        const newValue = roundFloat(this.get() - this.step, this.precision);
                         if (this.min == undefined || newValue >= this.min) {
                             this.set(newValue)
                         }
@@ -801,11 +806,11 @@
             return lineEnd >= 0 ? lineEnd : element.value.length;
         }
 
-        function findFloorUsingBinarySearch(low, high, step, computeFunc, comparisonFunc) {
+        function findFloorUsingBinarySearch(low, high, step, precision, computeFunc, comparisonFunc) {
             let result = undefined;
 
             while (low <= high) {
-                const i = low + Math.floor((high - low) / step / 2) * step;
+                const i = roundFloat(low + Math.floor((high - low) / step / 2) * step, precision);
                 const value = computeFunc(i);
                 const comparisonResult = comparisonFunc(value);
 
@@ -1130,8 +1135,11 @@
         }
 
         function redraw(considerRefitting) {
+            const minTextLengthForAutoFitting = 100;
+            const maxFontSizeForAutoFitting = 20;
+
             const shouldRefit = considerRefitting &&
-                                data.text.get() && data.text.get().length >= 100 &&
+                                data.text.get() && data.text.get().length >= minTextLengthForAutoFitting &&
                                 !data.fontSize.hasHashParam();
 
             if (shouldRefit) {
@@ -1144,8 +1152,9 @@
 
                     const result = findFloorUsingBinarySearch(
                         data.fontSize.min,
-                        data.fontSize.max,
+                        Math.min(data.fontSize.max, maxFontSizeForAutoFitting),
                         data.fontSize.step,
+                        data.fontSize.precision,
                         fontSize => {
                             data.fontSize.setElementValueSilently(fontSize);
                             return {fontSize, contentWidth: redrawContent()};
