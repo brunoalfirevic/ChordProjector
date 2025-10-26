@@ -795,8 +795,8 @@
             element.selectionStart = Math.min(start, end);
             element.selectionEnd = Math.max(start, end);
             element.selectionDirection = start < end ? 'forward' :
-                                            start > end ? 'backward' :
-                                            'none';
+                                         start > end ? 'backward' :
+                                         'none';
         }
 
         function getStartOfLinePositionForTextAreaCaret(element) {
@@ -815,15 +815,15 @@
             let result = undefined;
 
             while (low <= high) {
-                const i = roundFloat(low + Math.floor((high - low) / 2 / step) * step, precision);
-                const value = computeFunc(i);
+                const mid = roundFloat(low + Math.floor((high - low) / 2 / step) * step, precision);
+                const value = computeFunc(mid);
                 const comparisonResult = comparisonFunc(value);
 
                 if (comparisonResult <= 0) {
                     result = value;
-                    low = roundFloat(i + step, precision);
+                    low = roundFloat(mid + step, precision);
                 } else {
-                    high = roundFloat(i - step, precision);
+                    high = roundFloat(mid - step, precision);
                 }
             }
 
@@ -859,40 +859,19 @@
         };
 
         const noteChart = (function() {
-            const noteDegrees = {
-                'C': 0,
-                'D': 2,
-                'E': 4,
-                'F': 5,
-                'G': 7,
-                'A': 9,
-                'H': 11,
-                'B': 11,
+            const notes = {
+                '#': ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+                '♯': ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'],
+                'b': ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
+                '♭': ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B']
             };
 
-            const accidentals = {
-                '♯' : 1,
-                '#' : 1,
-                'b' : -1,
-                '♭' : -1,
+            const noteDegrees = {};
+            for (const noteValues of Object.values(notes)) {
+                noteValues.forEach((note, i) => noteDegrees[note] = i);
             }
 
-            const notes = {};
-            for (accidental of Object.keys(accidentals)) {
-                notes[accidental] = [];
-
-                for (const [key, value] of Object.entries(noteDegrees)) {
-                    notes[accidental][value] = key;
-                }
-
-                for (let i = 0; i < 12; i++) {
-                    if (!notes[accidental][i]) {
-                        notes[accidental][i] = notes[accidental][i - accidentals[accidental]] + accidental;
-                    }
-                }
-            }
-
-            return {noteDegrees, accidentals, notes};
+            return {notes, noteDegrees};
         })();
 
         function isHeaderLine(line) {
@@ -924,16 +903,15 @@
 
         function processChord(chord, capoAsWritten, transpose, capo, preferredAccidental) {
             function processNote(note) {
-                let degree = noteChart.noteDegrees[note[0]] + (noteChart.accidentals[note[1]] ?? 0);
+                let degree = noteChart.noteDegrees[note];
 
                 degree += (transpose ?? 0) - (capo ?? 0) + capoAsWritten;
-
                 degree %= 12;
                 if (degree < 0) {
                     degree += 12;
                 }
 
-                return noteChart.notes[preferredAccidental ?? '♯'][degree]; // ♭ b ♯ #
+                return noteChart.notes[preferredAccidental ?? '♯'][degree];
             }
 
             if (!chord.root) {
@@ -1005,13 +983,13 @@
         function inferCapoFromText(text) {
             const lines = text.split('\n');
 
-            for (let i = 0; i < lines.length; i++) {
-                const capoMetadata = matchFirst(regexes.capoMetadata, lines[i]);
+            for (const line of lines) {
+                const capoMetadata = matchFirst(regexes.capoMetadata, line);
                 if (capoMetadata) {
                     return toFloat(capoMetadata.groups.capo) ?? 0;
                 }
 
-                if (!isWhitespace(lines[i])) {
+                if (!isWhitespace(line)) {
                     break;
                 }
             }
@@ -1130,11 +1108,11 @@
                 }
             }
 
-            columns.forEach((column, i) => {
+            for (const column of columns) {
                 column.div.style.width = column.width + 'px';
                 column.div.style.position = '';
                 column.div.style.visibility = '';
-            });
+            };
 
             return elementSize(doc.content).width;
         }
