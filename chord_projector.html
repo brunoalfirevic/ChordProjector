@@ -836,9 +836,8 @@
             chord: rgx({flags: "g"},
                        /^|(?<=[\s|()\-])/,
                        rgx({name: "prefix", optional: true}, /⁺|•/),
-                       [/N\.C\./,
-                        rgx(
-                            rgx("root", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/),
+                       [rgx("placeholder", /N\.C\.|%/),
+                        rgx(rgx("root", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/),
                             rgx({name: "variant", optional: true}, [
                                 /(maj7|M7|7)?sus(2|4)?/,
                                 /dim|aug|M|°|ø/,
@@ -914,8 +913,8 @@
                 return noteChart.notes[preferredAccidental ?? '♯'][degree];
             }
 
-            if (!chord.root) {
-                return (chord.prefix ?? "") +  "N.C." + (chord.suffix ?? "");
+            if (chord.placeholder) {
+                return (chord.prefix ?? "") +  chord.placeholder + (chord.suffix ?? "");
             }
 
             let result = processNote(chord.root);
