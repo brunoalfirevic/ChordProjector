@@ -755,13 +755,13 @@
             return {
                 get: () => currentValue,
 
-                set: value => {
+                set: (value, additionalData) => {
                     const previousValue = currentValue;
                     currentValue = value;
                     updateElement();
                     updateUrl();
                     updateCookie();
-                    onChange(currentValue, previousValue);
+                    onChange(currentValue, previousValue, additionalData);
                 },
 
                 setElementValueSilently: value => {
@@ -1186,7 +1186,10 @@
         document.querySelectorAll('[id]').forEach(element => doc[element.id] = element);
 
         const data = {
-            text: bindData({el: doc.text, hash: true}, (_, previousValue) => { inferCapo(); redraw(!previousValue); }),
+            text: bindData({el: doc.text, hash: true}, (_, previousValue, additionalData) => {
+                inferCapo();
+                redraw(!previousValue || additionalData?.refit);
+            }),
             fontSize: bindData({el: doc.fontSize, hash: true}, () => redraw()),
             transpose: bindData({el: doc.transpose, hash: true}, () => redraw()),
             capo: bindData({el: doc.capo, hash: true}, () => redraw()),
@@ -1244,9 +1247,19 @@
             fullscreen.enable(true);
         });
 
-        doc.contentContainer.addEventListener('dblclick', event => {
+        doc.contentContainer.addEventListener('dblclick', () => {
             if (fullscreen.isFullScreen()) {
                 fullscreen.enable(false);
+            }
+        });
+
+        document.body.addEventListener('paste', e => {
+            if (fullscreen.isFullScreen()) {
+                const text = (e.clipboardData || window.clipboardData).getData("text");
+                if (text && text != data.text.get()) {
+                    data.text.set(text, {refit: true});
+                    e.preventDefault();
+                }
             }
         });
 
