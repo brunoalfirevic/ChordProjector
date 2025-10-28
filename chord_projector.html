@@ -583,25 +583,7 @@
                 let regexStr = regexes.length === 1 ? processRegex(regexes[0]).source
                                                     : regexes.map(regex => `(${processRegex(regex).source})`)
                                                              .join('');
-
-                if (options.name || options.optional || options.repeat) {
-                    if (options.name) {
-                        regexStr = `(?<${options.name}>${regexStr})`;
-                    } else {
-                        regexStr = `(${regexStr})`;
-                    }
-
-                    if (options.repeat) {
-                        if (options.optional) {
-                            regexStr += "*";
-                        } else {
-                            regexStr += "+";
-                        }
-                    } else if (options.optional) {
-                        regexStr += "?";
-                    }
-                }
-
+                regexStr = nameAndQuantify(options, regexStr);
                 return new RegExp(regexStr, options.flags);
             }
 
@@ -617,6 +599,19 @@
                 } else {
                     throw new Error("Only regexes and arrays are supported");
                 }
+            }
+
+            function nameAndQuantify(options, regexStr) {
+                const quantifier = options.repeat ? (options.optional ? '*' : '+')
+                                                  : (options.optional ? '?' : '');
+
+                if (options.name && options.repeat) {
+                    // we need to put the repeat quantifier inside the named capture group
+                    return `(?<${options.name}>(${regexStr})${quantifier})`
+                }
+
+                return options.name ? `(?<${options.name}>${regexStr})${quantifier}`
+                                    : `(${regexStr})${quantifier}`;
             }
         }
 
@@ -865,18 +860,20 @@
             chord: rgx({flags: "g"},
                        /^|(?<=[\s|()\-])/,
                        rgx({name: "prefix", optional: true}, /⁺|•/),
-                       [rgx("placeholder", /N\.C\.|%/),
-                        rgx(rgx("root", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/),
-                            rgx({name: "variant", optional: true}, [
-                                /(maj7|M7|7)?sus(2|4)?/,
-                                /dim|aug|M|°|ø/,
-                                rgx(/(m|min)?/,
-                                    /(2|4|5|6|((maj|M)?(7|9|11|13)))?/,
-                                    /((♯|#|b|♭)(5|9)|add(♯|#|b|♭)?(9|11|13))?/),
-                            ]),
-                            rgx({optional: true}, /\//, rgx("bass", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/)))
-                        ],
-                        rgx({name: "suffix", optional: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺/),
+                       rgx({name: "chord"},
+                           [/N\.C\./,
+                            /%/,
+                            rgx(rgx("root", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/),
+                                rgx({name: "variant", optional: true},
+                                    [/(maj7|M7|7)?sus(2|4)?/,
+                                     /dim|aug|M|°|ø/,
+                                     rgx(/(m|min)?/,
+                                         /(2|4|5|6|((maj|M)?(7|9|11|13)))?/,
+                                         /((♯|#|b|♭)(5|9)|add(♯|#|b|♭)?(9|11|13))?/)
+                                    ]),
+                                rgx({optional: true}, /\//, rgx("bass", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/)))
+                           ]),
+                        rgx({name: "suffix", optional: true, repeat: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|♩\.?|♪/),
                         /$|(?=[\s|()\-*,])/),
 
             allowedWithChords: /\([^()]+\)|[\s|%*()\-[\]]/g,
@@ -948,11 +945,6 @@
 
                 return noteChart.notes[preferredAccidental ?? '♯'][degree];
             }
-
-            if (chord.placeholder) {
-                return (chord.prefix ?? "") +  chord.placeholder + (chord.suffix ?? "");
-            }
-
             let result = processNote(chord.root);
 
             if (chord.variant) {
@@ -963,7 +955,7 @@
                 result += "/" + processNote(chord.bass);
             }
 
-            return (chord.prefix ?? "") + result + (chord.suffix ?? "");
+            return result;
         }
 
         function spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental) {
@@ -974,20 +966,26 @@
 
             const chordWithWhitespace = rgx({flags: "g"}, regexes.chord, /(?<whitespace>\s*)/);
 
-            return replaceAll(line, chordWithWhitespace, (match, chordCaptureGroups) => {
-                let whitespace = chordCaptureGroups.whitespace || '';
-                const originalChordLength = match.length - whitespace.length;
+            return replaceAll(line, chordWithWhitespace, (match, chordCaptureGroups, offset) => {
+                let {prefix = '', suffix = '', whitespace = '', chord} = chordCaptureGroups;
 
-                const processedChord = processChord(chordCaptureGroups, capoAsWritten, transpose, capo, preferredAccidental);
+                if (chordCaptureGroups.root) {
+                    chord = processChord(chordCaptureGroups, capoAsWritten, transpose, capo, preferredAccidental);
 
-                if (processedChord.length < originalChordLength) {
-                    whitespace = ' '.repeat(originalChordLength - processedChord.length) + whitespace;
-                } else if (processedChord.length > originalChordLength && whitespace.length >= 2) {
-                    whitespace = whitespace.substring(Math.min(processedChord.length - originalChordLength,
-                                                               whitespace.length - 1));
+                    const lengthDiff = chord.length - chordCaptureGroups.chord.length;
+                    if (lengthDiff < 0) {
+                        whitespace += ' '.repeat(-lengthDiff);
+                    } else if (lengthDiff > 0 && whitespace.length >= 1) {
+                        const nextCharAfterWhitespace = line[offset + match.length];
+                        const shouldLeaveOneWhitespaceChar = nextCharAfterWhitespace != '|' ||
+                                                             offset + match.length == line.length - 1;
+                        whitespace = whitespace.substring(shouldLeaveOneWhitespaceChar
+                                                          ? Math.min(lengthDiff, whitespace.length - 1)
+                                                          : lengthDiff);
+                    }
                 }
 
-                return `${span(processedChord, 'chord')}${whitespace}`;
+                return `${prefix}${span(chord, 'chord')}${suffix}${whitespace}`;
             });
         }
 
