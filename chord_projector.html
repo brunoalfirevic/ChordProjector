@@ -218,7 +218,6 @@
             font-family: Verdana, Geneva, Tahoma, sans-serif;
             font-size: 0.98em;
             font-style: italic;
-            letter-spacing: 1px;
         }
 
         .colorful-headers .line.header-line > span {
@@ -511,7 +510,7 @@
             const el = document.createElement(elementName);
 
             if (Array.isArray(className)) {
-                el.className = className.join(" ");
+                el.className = className.filter(v => !!v).join(" ");
             } else if (className) {
                 el.className = className;
             }
@@ -704,7 +703,8 @@
             }
 
             function loadFromElement() {
-                const rawValue = el.nodeName === 'INPUT' && el.type === 'checkbox' ? (el.checked ? el.value : '') : el.value;
+                const rawValue = el.nodeName === 'INPUT' && el.type === 'checkbox' ? (el.checked ? el.value : '')
+                                                                                   : el.value;
                 const parsedValue = parse(rawValue);
 
                 if (parsedValue !== currentValue) {
@@ -930,7 +930,7 @@
         }
 
         function isTextLine(line) {
-            return !isChordLine(line) && !isHeaderLine(line) && !isWhitespace(line);
+            return !isChordLine(line) && !isWhitespace(line) && !isHighlightedLine(line);
         }
 
         function processChord(chord, capoAsWritten, transpose, capo, preferredAccidental) {
@@ -967,12 +967,13 @@
             const chordWithWhitespace = rgx({flags: "g"}, regexes.chord, /(?<whitespace>\s*)/);
 
             return replaceAll(line, chordWithWhitespace, (match, chordCaptureGroups, offset) => {
-                let {prefix = '', suffix = '', whitespace = '', chord} = chordCaptureGroups;
+                let { prefix = '', suffix = '', whitespace = '', chord } = chordCaptureGroups;
 
                 if (chordCaptureGroups.root) {
                     chord = processChord(chordCaptureGroups, capoAsWritten, transpose, capo, preferredAccidental);
 
                     const lengthDiff = chord.length - chordCaptureGroups.chord.length;
+
                     if (lengthDiff < 0) {
                         whitespace += ' '.repeat(-lengthDiff);
                     } else if (lengthDiff > 0 && whitespace.length >= 1) {
@@ -991,11 +992,8 @@
 
         function createLineHtmlElement(line, nextLine, capoAsWritten, transpose, capo, preferredAccidental) {
             if (isWhitespace(line)) {
-                const element = createElement('div', ['line', 'empty-line']);
+                const element = createElement('div', ['line', 'empty-line', isHighlightedLine(nextLine) && 'pre-highlighted-line']);
                 element.innerHTML = "<br>"
-                if (isHighlightedLine(nextLine)) {
-                    element.classList.add("pre-highlighted-line");
-                }
                 return element;
             } else if (isHeaderLine(line)) {
                 const element = createElement('div', ['line', 'header-line', 'highlighted-line']);
@@ -1029,10 +1027,6 @@
                 const capoMetadata = matchFirst(regexes.capoMetadata, line);
                 if (capoMetadata) {
                     return toFloat(capoMetadata.groups.capo) ?? 0;
-                }
-
-                if (!isWhitespace(line)) {
-                    break;
                 }
             }
 
@@ -1216,10 +1210,10 @@
                 const wasFullscreen = this.isFullScreen();
                 document.body.classList.add('fullscreen');
 
-                action();
-
-                if (!wasFullscreen) {
-                    document.body.classList.remove('fullscreen');
+                try {
+                    action();
+                } finally {
+                    applyClass(document.body, wasFullscreen, 'fullscreen');
                 }
             }
         }
