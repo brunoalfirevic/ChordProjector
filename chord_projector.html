@@ -161,7 +161,6 @@
         }
 
         .line {
-            font-family: 'Roboto Mono', 'Courier New', monospace;
             line-height: 1.3; /* Tighter line spacing */
             margin: 0;
             padding: 0;
@@ -188,35 +187,49 @@
             line-height: 1;
         }
 
-        .line.empty-line.pre-header-line + .line.header-line{
+        .line.empty-line.pre-highlighted-line + .line.highlighted-line {
             margin-top: -0.3em;
         }
 
-        .line.header-line {
+        .line.highlighted-line + .line.empty-line.pre-highlighted-line {
+            margin-top: -0.5em;
+        }
+
+        .line.highlighted-line {
             padding-bottom: 0.4em;
         }
 
-        .line.header-line > span {
+        .line.highlighted-line > span {
             background-color: rgb(232, 232, 232);
             border-radius: 5px;
         }
 
-        .line.header-line .wh {
+        .line.highlighted-line .wh {
             display:none;
+        }
+
+        .colorful-headers .line.header-line .title, .colorful-headers .line.metadata-line .metadata {
+            font-size: 0.98em;
+            letter-spacing: 1px;
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
         }
 
         .colorful-headers .line.header-line > span {
             background-color: rgb(238, 229, 242);
         }
 
-        .colorful-headers .line.header-line .title {
-            font-size: 0.98em;
-            letter-spacing: 1px;
-        }
-
         .colorful-headers .line.header-line .bracket {
             font-size: 0.6em;
             color: rgb(232, 232, 232);
+        }
+
+        .colorful-headers .line.metadata-line > span {
+            background-color: rgb(210, 250, 210);
+        }
+
+        .colorful-headers .line.metadata-line .brace {
+            font-size: 0.6em;
+            color: rgb(210, 250, 210);
         }
 
         #leftEdgePixelAnchor {
@@ -850,10 +863,11 @@
                         rgx({name: "suffix", optional: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺/),
                         /$|(?=[\s|()\-*,])/),
 
-            header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
-            fingering: /((\d|x){4,7})/g,
             allowedWithChords: /\([^()]+\)|[\s|%*()\-[\]]/g,
+            fingering: /((\d|x){4,7})/g,
             tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/gi,
+            metadata: /^(\s)*({)([^}]+)(})(\s*)$/g,
+            header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
             capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi
         };
 
@@ -875,6 +889,14 @@
 
         function isHeaderLine(line) {
             return !isWhitespace(line) && line.match(regexes.header);
+        }
+
+        function isMetadataLine(line) {
+            return !isWhitespace(line) && line.match(regexes.metadata);
+        }
+
+        function isHighlightedLine(line) {
+            return isHeaderLine(line) || isMetadataLine(line);
         }
 
         function isTablatureLine(line) {
@@ -961,16 +983,23 @@
             if (isWhitespace(line)) {
                 const element = createElement('div', ['line', 'empty-line']);
                 element.innerHTML = "<br>"
-                if (isHeaderLine(nextLine)) {
-                    element.classList.add("pre-header-line");
+                if (isHighlightedLine(nextLine)) {
+                    element.classList.add("pre-highlighted-line");
                 }
                 return element;
             } else if (isHeaderLine(line)) {
-                const element = createElement('div', ['line', 'header-line']);
+                const element = createElement('div', ['line', 'header-line', 'highlighted-line']);
                 element.innerHTML = line.replaceAll(
                     regexes.header,
                     (match, wh1, br1, title, br2, wh2) =>
                         `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
+                return element;
+            } else if (isMetadataLine(line)) {
+                const element = createElement('div', ['line', 'metadata-line', 'highlighted-line']);
+                element.innerHTML = line.replaceAll(
+                    regexes.metadata,
+                    (match, wh1, br1, metadata, br2, wh2) =>
+                        `<span>${span(wh1, 'wh')}${span(br1, 'brace')}${span(metadata, 'metadata')}${span(br2, 'brace')}${span(wh2, 'wh')}</span>`);
                 return element;
             } else {
                 const element = createElement('div', 'line');
@@ -1002,22 +1031,23 @@
 
             for (let i = 0; i < lines.length; i++) {
                 if (isWhitespace(lines[i])) {
-                    // if two empty lines precede header, keep only one
-                    if (isWhitespace(lines[i + 1]) && isHeaderLine(lines[i + 2])) {
+                    // if two empty lines precede header or metadata line, keep only one
+                    if (isWhitespace(lines[i + 1]) && isHighlightedLine(lines[i + 2])) {
                         continue;
                     }
 
-                    // remove up to two empty lines after a header
-                    if (isHeaderLine(lines[i - 1]) ||
-                        isWhitespace(lines[i - 1]) && isHeaderLine(lines[i - 2])) {
+                    // remove up to two empty lines after a header or metadata line,
+                    // but keep one empty line if it is between two header/metadata lines
+                    if (isHighlightedLine(lines[i - 1]) && !isHighlightedLine(lines[i + 1]) ||
+                        isWhitespace(lines[i - 1]) && isHighlightedLine(lines[i - 2])) {
                         continue;
                     }
                 }
 
                 result.push(lines[i].trimEnd()); // Trim whitespace from the end of each line
 
-                // enforce one empty line before a header
-                if (!isWhitespace(lines[i]) && isHeaderLine(lines[i + 1])) {
+                // enforce one empty line before a header or metadata line
+                if (!isWhitespace(lines[i]) && isHighlightedLine(lines[i + 1])) {
                     result.push("");
                 }
             };
