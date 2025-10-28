@@ -178,6 +178,13 @@
             padding-right: .13em;
         }
 
+        .line .chord-prefix {
+            /* to make visible above the chord span when it overlaps */
+            position: relative;
+            z-index: 1;
+            font-weight: 700;
+        }
+
         .colorful-chords .line .chord {
             color: rgb(0, 123, 255);
             background-color: rgb(240, 248, 255);
@@ -546,6 +553,10 @@
         }
 
         function encodeHtml(str) {
+            if (!str) {
+                return '';
+            };
+
             const el = createElement('div');
             el.textContent = str;
             return el.innerHTML;
@@ -859,7 +870,7 @@
         const regexes = {
             chord: rgx({flags: "g"},
                        /^|(?<=[\s|()\-])/,
-                       rgx({name: "prefix", optional: true}, /⁺|•/),
+                       rgx({name: "prefix", optional: true}, /\+|⁺|•|<|≪|/),
                        rgx({name: "chord"},
                            [/N\.C\./,
                             /%/,
@@ -964,10 +975,21 @@
                 return encodeHtml(line);
             }
 
-            const chordWithWhitespace = rgx({flags: "g"}, regexes.chord, /(?<whitespace>\s*)/);
+            const chordWithWhitespace = rgx({flags: "g"},
+                                            /(?<beforeChord>.*?)/,
+                                            regexes.chord,
+                                            /(?<whitespace>\s*)/,
+                                            /(?<afterChord>.*?)/);
 
             return replaceAll(line, chordWithWhitespace, (match, chordCaptureGroups, offset) => {
-                let { prefix = '', suffix = '', whitespace = '', chord } = chordCaptureGroups;
+                let {
+                    beforeChord = '',
+                    afterChord = '',
+                    prefix = '',
+                    suffix = '',
+                    whitespace = '',
+                    chord
+                } = chordCaptureGroups;
 
                 if (chordCaptureGroups.root) {
                     chord = processChord(chordCaptureGroups, capoAsWritten, transpose, capo, preferredAccidental);
@@ -986,8 +1008,13 @@
                     }
                 }
 
-                return `${prefix}${span(chord, 'chord')}${suffix}${whitespace}`;
-            });
+                return encodeHtml(beforeChord) +
+                       span(prefix, 'chord-prefix') +
+                       span(chord, 'chord') +
+                       span(suffix, 'chord-suffix') +
+                       whitespace +
+                       encodeHtml(afterChord);
+            }).replaceAll('|', '<b>|</b>');
         }
 
         function createLineHtmlElement(line, nextLine, capoAsWritten, transpose, capo, preferredAccidental) {
