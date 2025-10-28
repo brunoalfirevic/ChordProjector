@@ -613,6 +613,15 @@
             }
         }
 
+        function replaceAll(str, regex, replacer) {
+            return str.replaceAll(regex, (match, ...args) => {
+                const hasNamedGroups = typeof args.at(-1) === "object";
+                const captureGroups = hasNamedGroups ? args.at(-1) : undefined;
+                const offset = hasNamedGroups ? args.at(-3) : args.at(-2);
+                return replacer(match, captureGroups, offset);
+            });
+        }
+
         function bindData(bindings, onChange, parse, stringify) {
             let { el, hash, cookie } = bindings;
 
@@ -866,8 +875,8 @@
             allowedWithChords: /\([^()]+\)|[\s|%*()\-[\]]/g,
             fingering: /((\d|x){4,7})/g,
             tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/gi,
-            metadata: /^(\s)*({)([^}]+)(})(\s*)$/g,
-            header: /^(\s*)(\[)([^\]]+)(\])(\s*)$/g,
+            metadata: /^(?<preWhitespace>\s)*(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/g,
+            header: /^(?<preWhitespace>\s*)(?<opener>\[)(?<content>[^\]]+)(?<closer>\])(?<postWhitespace>\s*)$/g,
             capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi
         };
 
@@ -911,9 +920,7 @@
             const allowedWithChords = rgx({repeat: true, optional: true}, [regexes.allowedWithChords, regexes.fingering]);
             const nothingButChordsRegex = rgx(/^/,
                                               allowedWithChords,
-                                              rgx({optional: false, repeat: true},
-                                                  regexes.chord,
-                                                  allowedWithChords),
+                                              rgx({repeat: true}, regexes.chord, allowedWithChords),
                                               /$/);
             return line.match(nothingButChordsRegex);
         }
@@ -958,15 +965,13 @@
                 return encodeHtml(line);
             }
 
-            const chordWithWhitespace = new RegExp(`${regexes.chord.source}(?<whitespace>\\s*)`, "g");
+            const chordWithWhitespace = rgx({flags: "g"}, regexes.chord, /(?<whitespace>\s*)/);
 
-            return line.replaceAll(chordWithWhitespace, (match, ...args) => {
-                const chord = args.at(-1);
-
-                let whitespace = chord.whitespace || '';
+            return replaceAll(line, chordWithWhitespace, (match, chordCaptureGroups) => {
+                let whitespace = chordCaptureGroups.whitespace || '';
                 const originalChordLength = match.length - whitespace.length;
 
-                const processedChord = processChord(chord, capoAsWritten, transpose, capo, preferredAccidental);
+                const processedChord = processChord(chordCaptureGroups, capoAsWritten, transpose, capo, preferredAccidental);
 
                 if (processedChord.length < originalChordLength) {
                     whitespace = ' '.repeat(originalChordLength - processedChord.length) + whitespace;
@@ -989,17 +994,21 @@
                 return element;
             } else if (isHeaderLine(line)) {
                 const element = createElement('div', ['line', 'header-line', 'highlighted-line']);
-                element.innerHTML = line.replaceAll(
-                    regexes.header,
-                    (match, wh1, br1, title, br2, wh2) =>
-                        `<span>${span(wh1, 'wh')}${span(br1, 'bracket')}${span(title, 'title')}${span(br2, 'bracket')}${span(wh2, 'wh')}</span>`);
+                element.innerHTML = replaceAll(line, regexes.header, (match, groups) =>
+                    `<span>${span(groups.preWhitespace, 'wh') +
+                             span(groups.opener, 'bracket') +
+                             span(groups.content, 'title') +
+                             span(groups.closer, 'bracket') +
+                             span(groups.postWhitespace, 'wh')}</span>`);
                 return element;
             } else if (isMetadataLine(line)) {
                 const element = createElement('div', ['line', 'metadata-line', 'highlighted-line']);
-                element.innerHTML = line.replaceAll(
-                    regexes.metadata,
-                    (match, wh1, br1, metadata, br2, wh2) =>
-                        `<span>${span(wh1, 'wh')}${span(br1, 'brace')}${span(metadata, 'metadata')}${span(br2, 'brace')}${span(wh2, 'wh')}</span>`);
+                element.innerHTML = replaceAll(line, regexes.metadata, (match, groups) =>
+                    `<span>${span(groups.preWhitespace, 'wh') +
+                             span(groups.opener, 'brace') +
+                             span(groups.content, 'metadata') +
+                             span(groups.closer, 'brace') +
+                             span(groups.postWhitespace, 'wh')}</span>`);
                 return element;
             } else {
                 const element = createElement('div', 'line');
