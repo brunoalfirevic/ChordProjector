@@ -182,6 +182,9 @@
             /* to make visible above the chord span when it overlaps */
             position: relative;
             z-index: 1;
+        }
+
+        :not(.line:has(.chord-prefix) ~ .line:has(.chord-prefix)).line:has(.chord-prefix):not(:has(~ .line .chord-prefix)) .chord-prefix {
             font-weight: 700;
         }
 
@@ -870,7 +873,7 @@
         const regexes = {
             chord: rgx({flags: "g"},
                        /^|(?<=[\s|()\-])/,
-                       rgx({name: "prefix", optional: true}, /\+|⁺|•|<|≪|/),
+                       rgx({name: "prefix", optional: true}, /\+|⁺|•|<|≪|＜|≺|>/),
                        rgx({name: "chord"},
                            [/N\.C\./,
                             /%/,
@@ -1133,7 +1136,7 @@
                     currentColumn.div.appendChild(lineElement);
                     let requiredHeight = elementSize(lineElement).height;
 
-                    if (nextLine && isChordLine(line) && isTextLine(nextLine)) {
+                    if ((isChordLine(line) && isTextLine(nextLine)) || isMetadataLine(line)) {
                         currentColumn.div.appendChild(nextLineElement);
                         requiredHeight += elementSize(nextLineElement).height;
                         currentColumn.div.removeChild(nextLineElement);
