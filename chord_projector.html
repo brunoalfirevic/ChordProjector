@@ -873,7 +873,7 @@
         const regexes = {
             chord: rgx({flags: "g"},
                        /^|(?<=[\s|()\-])/,
-                       rgx({name: "prefix", optional: true}, /\+|⁺|•|<|≪|＜|≺|>/),
+                       rgx({name: "prefix", optional: true}, /\+|⁺|•|\^|⌄|ᑉ|‹|<|≪|＜|≺|⟨|❮|⟪|>/),
                        rgx({name: "chord"},
                            [/N\.C\./,
                             /%/,
@@ -887,10 +887,10 @@
                                     ]),
                                 rgx({optional: true}, /\//, rgx("bass", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/)))
                            ]),
-                        rgx({name: "suffix", optional: true, repeat: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|♩\.?|♪/),
-                        /$|(?=[\s|()\-*,])/),
+                        rgx({name: "suffix", optional: true, repeat: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|♩\.?|♪|◇|⬦|♢|◆|♦|⟩|❯|⟫/),
+                        /$|(?=[\s|:()\-*,])/),
 
-            allowedWithChords: /\([^()]+\)|[\s|%*()\-[\]]/g,
+            allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]]/g,
             fingering: /((\d|x){4,7})/g,
             tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/gi,
             metadata: /^(?<preWhitespace>\s)*(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/g,
