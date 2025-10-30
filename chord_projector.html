@@ -178,13 +178,17 @@
             padding-right: .13em;
         }
 
+        .line .chord-bar {
+            display: inline-block;
+            vertical-align: text-top;
+            transform: translateY(-1px) scaleY(1.2);
+            font-weight: 700;
+        }
+
         .line .chord-prefix {
             /* to make visible above the chord span when it overlaps */
             position: relative;
             z-index: 1;
-        }
-
-        :not(.line:has(.chord-prefix) ~ .line:has(.chord-prefix)).line:has(.chord-prefix):not(:has(~ .line .chord-prefix)) .chord-prefix {
             font-weight: 700;
         }
 
@@ -872,7 +876,7 @@
     <script id="domainFunctions">
         const regexes = {
             chord: rgx({flags: "g"},
-                       /^|(?<=[\s|()\-])/,
+                       /^|(?<=[\s|()\-}])/,
                        rgx({name: "prefix", optional: true}, /\+|⁺|•|\^|⌄|ᑉ|‹|<|≪|＜|≺|⟨|❮|⟪|>/),
                        rgx({name: "chord"},
                            [/N\.C\./,
@@ -888,7 +892,7 @@
                                 rgx({optional: true}, /\//, rgx("bass", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/)))
                            ]),
                         rgx({name: "suffix", optional: true, repeat: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|♩\.?|♪|◇|⬦|♢|◆|♦|⟩|❯|⟫/),
-                        /$|(?=[\s|:()\-*,])/),
+                        /$|(?=[\s|:()\-*,{])/),
 
             allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]]/g,
             fingering: /((\d|x){4,7})/g,
@@ -1017,7 +1021,7 @@
                        span(suffix, 'chord-suffix') +
                        whitespace +
                        encodeHtml(afterChord);
-            }).replaceAll('|', '<b>|</b>');
+            }).replaceAll('|', '<span class="chord-bar">|</span>');
         }
 
         function createLineHtmlElement(line, nextLine, capoAsWritten, transpose, capo, preferredAccidental) {
