@@ -877,10 +877,11 @@
         const regexes = {
             chord: rgx({flags: "g"},
                        /^|(?<=[\s|()\-}])/,
-                       rgx({name: "prefix", optional: true}, /\+|⁺|•|\^|⌄|ᑉ|‹|<|≪|＜|≺|⟨|❮|⟪|>/),
+                       rgx({name: "prefix", optional: true}, /\+|⁺|•|\^|⌄|⤺|ᑉ|‹|<|≪|＜|≺|⟨|❮|⟪/),
                        rgx({name: "chord"},
                            [/N\.C\./,
                             /%/,
+                            /X/,
                             rgx(rgx("root", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/),
                                 rgx({name: "variant", optional: true},
                                     [/(maj7|M7|7)?sus(2|4)?/,
@@ -891,12 +892,13 @@
                                     ]),
                                 rgx({optional: true}, /\//, rgx("bass", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/)))
                            ]),
-                        rgx({name: "suffix", optional: true, repeat: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|♩\.?|♪|◇|⬦|♢|◆|♦|⟩|❯|⟫/),
+                        rgx({name: "suffix", optional: true, repeat: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|𝄐|•|▮|♩|\.|…|‥|․|♪|⏜|◇|⬦|♢|◆|♦|⟩|❯|⟫|①|②|④|⑧|⑯|❶|❷|❹|❽|⓰/),
                         /$|(?=[\s|:()\-*,{])/),
 
             allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]]/g,
             fingering: /((\d|x){4,7})/g,
             tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/gi,
+            tablatureTiming: /^\s*(⧖|⏲)\|[\-|()\d◇․♩.…♪‥⌇𐒇▬⬓⬒⌒⏑⏜⏝⬭⬬\s╹╵╯┘ᥣ]+\|$/gi,
             metadata: /^(?<preWhitespace>\s)*(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/g,
             header: /^(?<preWhitespace>\s*)(?<opener>\[)(?<content>[^\]]+)(?<closer>\])(?<postWhitespace>\s*)$/g,
             capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi
@@ -910,7 +912,7 @@
                 '♭': ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B']
             };
 
-            const noteDegrees = {};
+            const noteDegrees = {'H': 11};
             for (const noteValues of Object.values(notes)) {
                 noteValues.forEach((note, i) => noteDegrees[note] = i);
             }
@@ -931,7 +933,7 @@
         }
 
         function isTablatureLine(line) {
-            return line.match(regexes.tablature);
+            return !isWhitespace(line) && (line.match(regexes.tablature) || line.match(regexes.tablatureTiming));
         }
 
         function isChordLine(line) {
@@ -948,7 +950,7 @@
         }
 
         function isTextLine(line) {
-            return !isChordLine(line) && !isWhitespace(line) && !isHighlightedLine(line);
+            return !isWhitespace(line) && !isChordLine(line) && !isHighlightedLine(line) && !isTablatureLine(line);
         }
 
         function processChord(chord, capoAsWritten, transpose, capo, preferredAccidental) {
@@ -1140,7 +1142,7 @@
                     currentColumn.div.appendChild(lineElement);
                     let requiredHeight = elementSize(lineElement).height;
 
-                    if ((isChordLine(line) && isTextLine(nextLine)) || isMetadataLine(line)) {
+                    if (isChordLine(line) && isTextLine(nextLine)) {
                         currentColumn.div.appendChild(nextLineElement);
                         requiredHeight += elementSize(nextLineElement).height;
                         currentColumn.div.removeChild(nextLineElement);
