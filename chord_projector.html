@@ -597,6 +597,20 @@
             return el.innerHTML;
         }
 
+        function encodeAttr(str) {
+            if (!str) {
+                return '';
+            };
+
+            const el = createElement('div');
+            el.setAttribute('attr', str);
+
+            // Find out whether the browser used single or double quotes before encodedText
+            const quote = el.outerHTML[el.outerHTML.search(/['"]/)];
+            // Split up the generated HTML using the quote character; take item 1
+            return el.outerHTML.split(new RegExp(quote))[1];
+        }
+
         function applyClass(element, condition, className) {
             if (condition) {
                 element.classList.add(className);
@@ -608,6 +622,10 @@
         function span(content, className) {
             if (isEmpty(content)) {
                 return '';
+            }
+
+            if (Array.isArray(className)) {
+                className = className.filter(v => !!v).join(" ");
             }
 
             return `<span class='${className}'>${encodeHtml(content)}</span>`;
@@ -993,6 +1011,7 @@
 
                 return noteChart.notes[preferredAccidental ?? '♯'][degree];
             }
+
             let result = processNote(chord.root);
 
             if (chord.variant) {
