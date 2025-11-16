@@ -535,24 +535,6 @@
             return str == undefined || str.trim() === '';
         }
 
-        function matchAll(regex, str) {
-            if (str == undefined) {
-                return [];
-            }
-
-            regex = rgx({flags: "g"}, regex);
-            return Array.from(str.matchAll(regex));
-        }
-
-        function matchFirst(regex, str) {
-            const matches = matchAll(regex, str);
-            if (matches.length == 0) {
-                return undefined;
-            }
-
-            return matches[0];
-        }
-
         function createElement(elementName, className, style) {
             const el = document.createElement(elementName);
 
@@ -639,7 +621,7 @@
         function rgx(optionArg, ...args) {
             if (typeof optionArg === 'string' || optionArg instanceof String) {
                 return createRegex({name: optionArg}, args);
-            } else if (optionArg instanceof RegExp) {
+            } else if (optionArg instanceof RegExp || Array.isArray(optionArg)) {
                 return createRegex({}, [optionArg, ...args]);
             } else if (typeof optionArg === 'object') {
                 return createRegex(optionArg, args);
@@ -683,15 +665,49 @@
             }
         }
 
-        function replaceAll(str, regex, replacer) {
-            regex = rgx({flags: "g"}, regex);
+        function matchAll(str, regex) {
+            if (str == undefined) {
+                return [];
+            }
 
-            return str.replaceAll(regex, (match, ...args) => {
-                const hasNamedGroups = typeof args.at(-1) === "object";
-                const captureGroups = hasNamedGroups ? args.at(-1) : undefined;
-                const offset = hasNamedGroups ? args.at(-3) : args.at(-2);
-                return replacer(match, captureGroups, offset);
-            });
+            regex = new RegExp(regex.source, regex.flags.includes("g") ? regex.flags : regex.flags + "g");
+            return Array.from(str.matchAll(regex));
+        }
+
+        function matchFirst(str, regex) {
+            const matches = matchAll(str, regex);
+            if (matches.length == 0) {
+                return undefined;
+            }
+
+            return matches[0];
+        }
+
+        function replaceAll(str, regex, replacer, unmatchedProcessor = (v => v)) {
+            const matches = matchAll(str, regex);
+
+            const result = [];
+            let lastStrIndexInResult = -1;
+
+            for (const match of matches) {
+                const matchedSubstring = str.substring(match.index, match.index + match[0].length);
+                const replacement = replacer(matchedSubstring, match.groups, match.index);
+
+                if (match.index > lastStrIndexInResult + 1) {
+                    result.push(unmatchedProcessor(str.substring(lastStrIndexInResult + 1, match.index),
+                                                   lastStrIndexInResult + 1));
+                }
+
+                result.push(replacement);
+                lastStrIndexInResult = match.index + matchedSubstring.length - 1;
+            }
+
+            if (str.length > lastStrIndexInResult + 1) {
+                result.push(unmatchedProcessor(str.substring(lastStrIndexInResult + 1),
+                                               lastStrIndexInResult + 1));
+            }
+
+            return result.join('');
         }
 
         function bindData(bindings, onChange, parse, stringify) {
@@ -1042,20 +1058,15 @@
         }
 
         function spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental) {
-            const chordMatches = matchAll(regexes.chord, line);
+            const chordMatches = matchAll(line, regexes.chord);
             if (chordMatches.length == 0 || (chordMatches.length < 2 && !isChordLine(line))) {
                 return encodeHtml(line);
             }
 
-            const chordWithWhitespace = rgx(/(?<beforeChord>.*?)/,
-                                            regexes.chord,
-                                            /(?<whitespace>\s*)/,
-                                            /(?<afterChord>.*?)/);
+            const chordWithWhitespace = rgx(regexes.chord, /(?<whitespace>\s*)/);
 
             return replaceAll(line, chordWithWhitespace, (match, chordCaptureGroups, offset) => {
                 let {
-                    beforeChord = '',
-                    afterChord = '',
                     prefix = '',
                     suffix = '',
                     whitespace = '',
@@ -1079,13 +1090,11 @@
                     }
                 }
 
-                return encodeHtml(beforeChord) +
-                       `<span class="chord-prefix">${charSpans(prefix)}</span>` +
+                return `<span class="chord-prefix">${charSpans(prefix)}</span>` +
                        span(chord, 'chord') +
                        `<span class="chord-suffix">${charSpans(suffix)}</span>` +
-                       whitespace +
-                       encodeHtml(afterChord);
-            }).replaceAll('|', charSpans);
+                       whitespace;
+            }, encodeHtml).replaceAll('|', charSpans);
         }
 
         function createLineHtmlElement(line, nextLine, capoAsWritten, transpose, capo, preferredAccidental) {
@@ -1126,7 +1135,7 @@
             const lines = text.split('\n');
 
             for (const line of lines) {
-                const capoMetadata = matchFirst(regexes.capoMetadata, line);
+                const capoMetadata = matchFirst(line, regexes.capoMetadata);
                 if (capoMetadata) {
                     return toFloat(capoMetadata.groups.capo) ?? 0;
                 }
