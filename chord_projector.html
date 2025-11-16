@@ -535,12 +535,17 @@
             return str == undefined || str.trim() === '';
         }
 
-        function matchFirst(regex, str) {
+        function matchAll(regex, str) {
             if (str == undefined) {
-                return undefined;
+                return [];
             }
 
-            const matches = Array.from(str.matchAll(regex));
+            regex = rgx({flags: "g"}, regex);
+            return Array.from(str.matchAll(regex));
+        }
+
+        function matchFirst(regex, str) {
+            const matches = matchAll(regex, str);
             if (matches.length == 0) {
                 return undefined;
             }
@@ -679,6 +684,8 @@
         }
 
         function replaceAll(str, regex, replacer) {
+            regex = rgx({flags: "g"}, regex);
+
             return str.replaceAll(regex, (match, ...args) => {
                 const hasNamedGroups = typeof args.at(-1) === "object";
                 const captureGroups = hasNamedGroups ? args.at(-1) : undefined;
@@ -921,8 +928,7 @@
 
     <script id="domainFunctions">
         const regexes = {
-            chord: rgx({flags: "g"},
-                       /^|(?<=[\s|()\-}])/,
+            chord: rgx(/^|(?<=[\s|()\-}])/,
                        rgx({name: "prefix", optional: true}, /\+|⁺|•|\^|⌄|⤺|ᑉ|~/),
                        rgx({name: "chord"},
                            [/N\.C\./,
@@ -941,13 +947,13 @@
                         rgx({name: "suffix", optional: true, repeat: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|•|▮|▯|⋈|⧓|\.|…|‥|․|♪|♩|𝄐|⏜|⏝|◠|◡|◇|⬦|♢|◆|♦|①|②|④|⑧|⑯|❶|❷|❹|❽|⓰/),
                         /$|(?=[\s|:()\-*,{])/),
 
-            allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]]/g,
-            fingering: /((\d|x){4,7})/g,
-            tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/gi,
-            tablatureTiming: /^\s*(⧖|⏲|𝄞)\|[\-|()\d◇․♩.…♪‥⌇𐒇▬⬓⬒⌒⏑⏜⏝◠◡⬭⬬\s]+\|$/gi,
-            metadata: /^(?<preWhitespace>\s)*(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/g,
-            header: /^(?<preWhitespace>\s*)(?<opener>\[)(?<content>[^\]]+)(?<closer>\])(?<postWhitespace>\s*)$/g,
-            capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/gi
+            allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]]/,
+            fingering: /((\d|x){4,7})/,
+            tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/i,
+            tablatureTiming: /^\s*(⧖|⏲|𝄞)\|[\-|()\d◇․♩.…♪‥⌇𐒇▬⬓⬒⌒⏑⏜⏝◠◡⬭⬬\s]+\|$/i,
+            metadata: /^(?<preWhitespace>\s)*(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/,
+            header: /^(?<preWhitespace>\s*)(?<opener>\[)(?<content>[^\]]+)(?<closer>\])(?<postWhitespace>\s*)$/,
+            capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/i
         };
 
         const noteChart = (function() {
@@ -967,11 +973,11 @@
         })();
 
         function isHeaderLine(line) {
-            return !isWhitespace(line) && line.match(regexes.header);
+            return !isWhitespace(line) && regexes.header.test(line);
         }
 
         function isMetadataLine(line) {
-            return !isWhitespace(line) && line.match(regexes.metadata);
+            return !isWhitespace(line) && regexes.metadata.test(line);
         }
 
         function isHighlightedLine(line) {
@@ -979,7 +985,7 @@
         }
 
         function isTablatureLine(line) {
-            return !isWhitespace(line) && (line.match(regexes.tablature) || line.match(regexes.tablatureTiming));
+            return !isWhitespace(line) && (regexes.tablature.test(line) || regexes.tablatureTiming.test(line));
         }
 
         function isChordLine(line) {
@@ -992,7 +998,7 @@
                                               allowedWithChords,
                                               rgx({repeat: true}, regexes.chord, allowedWithChords),
                                               /$/);
-            return line.match(nothingButChordsRegex);
+            return nothingButChordsRegex.test(line);
         }
 
         function isTextLine(line) {
@@ -1026,13 +1032,12 @@
         }
 
         function spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental) {
-            const chordMatch = line.match(regexes.chord);
-            if (!chordMatch || (chordMatch.length < 2 && !isChordLine(line))) {
+            const chordMatches = matchAll(regexes.chord, line);
+            if (chordMatches.length == 0 || (chordMatches.length < 2 && !isChordLine(line))) {
                 return encodeHtml(line);
             }
 
-            const chordWithWhitespace = rgx({flags: "g"},
-                                            /(?<beforeChord>.*?)/,
+            const chordWithWhitespace = rgx(/(?<beforeChord>.*?)/,
                                             regexes.chord,
                                             /(?<whitespace>\s*)/,
                                             /(?<afterChord>.*?)/);
