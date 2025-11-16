@@ -1096,6 +1096,10 @@
                              span(groups.closer, 'brace') +
                              span(groups.postWhitespace, 'wh')}</span>`);
                 return element;
+            } else if (isTablatureLine(line)) {
+                const element = createElement('div', ['line', 'tablature-line']);
+                element.innerHTML = encodeHtml(line);
+                return element;
             } else {
                 const element = createElement('div', 'line');
                 element.innerHTML = spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental);
