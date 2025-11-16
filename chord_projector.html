@@ -207,7 +207,7 @@
             padding-right: .13em;
         }
 
-        .line .chord-bar {
+        .line .char[content="|"] {
             display: inline-block;
             transform: translateY(-1px) scaleY(1.2);
             font-weight: 700;
@@ -1031,6 +1031,16 @@
             return result;
         }
 
+        function charSpans(content) {
+            if (!content) {
+                return '';
+            }
+
+            return Array.from(content)
+                        .map(c => `<span class="char" content="${encodeAttr(c)}">${encodeHtml(c)}</span>`)
+                        .join('')
+        }
+
         function spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental) {
             const chordMatches = matchAll(regexes.chord, line);
             if (chordMatches.length == 0 || (chordMatches.length < 2 && !isChordLine(line))) {
@@ -1070,12 +1080,12 @@
                 }
 
                 return encodeHtml(beforeChord) +
-                       span(prefix, 'chord-prefix') +
+                       `<span class="chord-prefix">${charSpans(prefix)}</span>` +
                        span(chord, 'chord') +
-                       span(suffix, 'chord-suffix') +
+                       `<span class="chord-suffix">${charSpans(suffix)}</span>` +
                        whitespace +
                        encodeHtml(afterChord);
-            }).replaceAll('|', '<span class="chord-bar">|</span>');
+            }).replaceAll('|', charSpans);
         }
 
         function createLineHtmlElement(line, nextLine, capoAsWritten, transpose, capo, preferredAccidental) {
@@ -1103,7 +1113,7 @@
                 return element;
             } else if (isTablatureLine(line)) {
                 const element = createElement('div', ['line', 'tablature-line']);
-                element.innerHTML = encodeHtml(line);
+                element.innerHTML = charSpans(line);
                 return element;
             } else {
                 const element = createElement('div', 'line');
