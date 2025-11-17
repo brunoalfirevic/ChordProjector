@@ -207,17 +207,11 @@
             padding-right: .13em;
         }
 
-        .line .char[content="|"] {
-            display: inline-block;
-            transform: translateY(-1px) scaleY(1.2);
-            font-weight: 700;
-        }
-
-        .line .chord-prefix {
+        .line .chord-prefix,
+        .line .chord-suffix {
             /* to make visible above the chord span when it overlaps */
             position: relative;
             z-index: 1;
-            font-weight: 700;
         }
 
         .colorful-chords .line .chord {
@@ -345,6 +339,23 @@
         .flex11 { flex: 11; }
         .flex12 { flex: 12; }
         .flex13 { flex: 13; }
+
+        /* specific character styling */
+
+        .line .char[content="|"] {
+            display: inline-block;
+            transform: translateY(-1px) scaleY(1.2);
+            font-weight: 700;
+        }
+
+        .line .char[content="𝄐"] {
+            display: inline-block;
+            width: 1ch;
+            text-align: center;
+            vertical-align: middle;
+            font-weight: 700;
+            font-family: 'Noto Music';
+        }
     </style>
 </head>
 <body>
