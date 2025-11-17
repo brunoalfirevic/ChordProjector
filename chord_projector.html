@@ -250,6 +250,28 @@
             display:none;
         }
 
+        .line .inline-metadata {
+            background-color: rgb(232, 232, 232);
+            border-radius: 5px;
+        }
+
+        .colorful-headers .line .inline-metadata .brace {
+            color: rgb(210, 250, 210);
+        }
+
+        .colorful-headers .line .inline-metadata {
+            margin-left: 0.2em;
+            margin-right: 0.2em;
+            background-color: rgb(210, 250, 210);
+        }
+
+        .colorful-headers .line .inline-metadata .brace:first-child {
+            margin-right: -0.2em;
+        }
+
+        .colorful-headers .line .inline-metadata .brace:last-child {
+            margin-left: -0.2em;
+        }
         .colorful-headers .line.header-line .title {
             font-family: Verdana, Geneva, Tahoma, sans-serif;
             font-size: 0.98em;
@@ -1034,6 +1056,10 @@
                 return noteChart.notes[preferredAccidental ?? '♯'][degree];
             }
 
+            if (!chord.root) {
+                return chord.chord;
+            }
+
             let result = processNote(chord.root);
 
             if (chord.variant) {
@@ -1063,36 +1089,37 @@
                 return encodeHtml(line);
             }
 
-            const chordWithWhitespace = rgx(regexes.chord, /(?<whitespace>\s*)/);
+            const chordOrMetadataRegex = rgx([/{(?<metadata>[^{}]+)}/,
+                                              rgx(regexes.chord, /(?<whitespace>\s*)/)]);
 
-            return replaceAll(line, chordWithWhitespace, (match, chordCaptureGroups, offset) => {
-                let {
-                    prefix = '',
-                    suffix = '',
-                    whitespace = '',
-                    chord
-                } = chordCaptureGroups;
-
-                if (chordCaptureGroups.root) {
-                    chord = processChord(chordCaptureGroups, capoAsWritten, transpose, capo, preferredAccidental);
-
-                    const lengthDiff = chord.length - chordCaptureGroups.chord.length;
-
-                    if (lengthDiff < 0) {
-                        whitespace += ' '.repeat(-lengthDiff);
-                    } else if (lengthDiff > 0 && whitespace.length >= 1) {
-                        const nextCharAfterWhitespace = line[offset + match.length];
-                        const shouldLeaveOneWhitespaceChar = nextCharAfterWhitespace != '|' ||
-                                                             offset + match.length == line.length - 1;
-                        whitespace = whitespace.substring(shouldLeaveOneWhitespaceChar
-                                                          ? Math.min(lengthDiff, whitespace.length - 1)
-                                                          : lengthDiff);
-                    }
+            return replaceAll(line, chordOrMetadataRegex, (match, captureGroups, offset) => {
+                if (captureGroups.metadata) {
+                    return `<span class="inline-metadata">${span('{', 'brace') +
+                                                            span(captureGroups.metadata, 'content') +
+                                                            span('}', 'brace')}</span>`;
                 }
 
-                return `<span class="chord-prefix">${charSpans(prefix)}</span>` +
+                const chord = processChord(captureGroups, capoAsWritten, transpose, capo, preferredAccidental);
+
+                let whitespace = captureGroups.whitespace ?? '';
+                const lengthDiff = chord.length - captureGroups.chord.length;
+
+                if (lengthDiff < 0) {
+                    whitespace += ' '.repeat(-lengthDiff);
+                } else if (lengthDiff > 0 && whitespace.length >= 1) {
+                    // if followed by a bar that's not the last character in the line
+                    const nextCharIndex = offset + match.length;
+                    const canRemoveAllWhitespace = line[nextCharIndex] == '|' &&
+                                                   nextCharIndex < line.length - 1;
+
+                    whitespace = whitespace.substring(canRemoveAllWhitespace
+                                                        ? lengthDiff
+                                                        : Math.min(lengthDiff, whitespace.length - 1));
+                }
+
+                return `<span class="chord-prefix">${charSpans(captureGroups.prefix)}</span>` +
                        span(chord, 'chord') +
-                       `<span class="chord-suffix">${charSpans(suffix)}</span>` +
+                       `<span class="chord-suffix">${charSpans(captureGroups.suffix)}</span>` +
                        whitespace;
             }, encodeHtml).replaceAll('|', charSpans);
         }
