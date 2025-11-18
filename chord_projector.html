@@ -442,6 +442,17 @@
     </div>
 
     <script id="utilityFunctions">
+        function debounce(func, wait = 50) {
+            let timeout = null;
+
+            return function() {
+                if (!timeout) {
+                    timeout = setTimeout(() => timeout = null, wait);
+                    func.apply(this, arguments);
+                }
+            };
+        }
+
         function getHashParam(param) {
             if (!window.location.hash) {
                 return null;
@@ -1399,7 +1410,7 @@
         window.addEventListener('resize', () => redraw());
 
         // Add keyboard shortcuts
-        document.addEventListener('keydown', e => {
+        document.addEventListener('keydown', debounce(e => {
             const anyInputHasFocus = Array.from(document.querySelectorAll('input, textarea'))
                                           .some(item => document.activeElement === item)
 
@@ -1429,7 +1440,7 @@
                     break;
                 }
             }
-        });
+        }));
 
         doc.hideButton.addEventListener('click', () => {
             fullscreen.enable(true);
