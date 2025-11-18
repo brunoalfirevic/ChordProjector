@@ -1128,9 +1128,15 @@
                                                         : Math.min(lengthDiff, whitespace.length - 1));
                 }
 
-                return `<span class="chord-prefix">${charSpans(captureGroups.prefix)}</span>` +
+                return '<span class="chord-container">' +
+                       (captureGroups.prefix
+                            ? `<span class="chord-prefix">${charSpans(captureGroups.prefix)}</span>`
+                            : '') +
                        span(chord, 'chord') +
-                       `<span class="chord-suffix">${charSpans(captureGroups.suffix)}</span>` +
+                       (captureGroups.suffix
+                            ? `<span class="chord-suffix">${charSpans(captureGroups.suffix)}</span>`
+                            : '') +
+                       '</span>' +
                        whitespace;
             }, encodeHtml).replaceAll('|', charSpans);
         }
