@@ -704,13 +704,31 @@
             }
         }
 
+        const regexCache = (function() {
+            const cacheMap = new Map();
+            const delimiter = "f47d9a9a-947f-420c-ab23-d084dce6b7ee";
+
+            return {
+                getOrComputeMatches: (str, regex) => {
+                    return Array.from(str.matchAll(regex));
+
+                    const cacheKey = regex.source + delimiter + regex.flags + delimiter + str;
+                    const cachedResult = cacheMap[cacheKey];
+
+                    return cachedResult ?? (regexCache[cacheKey] = Array.from(str.matchAll(regex)));
+                },
+
+                clear: () => cacheMap.clear()
+            }
+        })();
+
         function matchAll(str, regex) {
             if (str == undefined) {
                 return [];
             }
 
             regex = new RegExp(regex.source, regex.flags.includes("g") ? regex.flags : regex.flags + "g");
-            return Array.from(str.matchAll(regex));
+            return regexCache.getOrComputeMatches(str, regex);
         }
 
         function matchFirst(str, regex) {
@@ -720,6 +738,10 @@
             }
 
             return matches[0];
+        }
+
+        function testRegex(str, regex) {
+            return !!matchFirst(str, regex);
         }
 
         function replaceAll(str, regex, replacer, unmatchedProcessor = (v => v)) {
@@ -1029,19 +1051,23 @@
         })();
 
         function isHeaderLine(line) {
-            return !isWhitespace(line) && regexes.header.test(line);
+            return !isWhitespace(line) && testRegex(line, regexes.header);
         }
 
         function isMetadataLine(line) {
-            return !isWhitespace(line) && regexes.metadata.test(line);
+            return !isWhitespace(line) && testRegex(line, regexes.metadata);
         }
 
         function isHighlightedLine(line) {
             return isHeaderLine(line) || isMetadataLine(line);
         }
 
+        function isTablatureTiming(line) {
+            return !isWhitespace(line) && testRegex(line, regexes.tablatureTiming);
+        }
+
         function isTablatureLine(line) {
-            return !isWhitespace(line) && (regexes.tablature.test(line) || regexes.tablatureTiming.test(line));
+            return !isWhitespace(line) && (testRegex(line, regexes.tablature) || isTablatureTiming(line));
         }
 
         function isChordLine(line) {
@@ -1054,7 +1080,7 @@
                                               allowedWithChords,
                                               rgx({repeat: true}, regexes.chord, allowedWithChords),
                                               /$/);
-            return nothingButChordsRegex.test(line);
+            return testRegex(line, nothingButChordsRegex);
         }
 
         function isTextLine(line) {
@@ -1387,6 +1413,7 @@
 
         const data = {
             text: bindData({el: doc.text, hash: true}, (_, previousValue, additionalData) => {
+                regexCache.clear();
                 inferCapo();
                 redraw(!previousValue || additionalData?.refit);
             }),
