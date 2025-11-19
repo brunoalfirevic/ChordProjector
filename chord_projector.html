@@ -198,6 +198,8 @@
         }
 
         .line .chord {
+            position: relative;
+            z-index: -1; /* to make character around chords appear above the highlighted background */
             font-weight: 700;
             background-color: rgb(232, 232, 232);
             border-radius: 3px;
@@ -205,13 +207,6 @@
             padding-left: .13em;
             margin-right: -.13em;
             padding-right: .13em;
-        }
-
-        .line .chord-prefix,
-        .line .chord-suffix {
-            /* to make visible above the chord span when it overlaps */
-            position: relative;
-            z-index: 1;
         }
 
         .colorful-chords .line .chord {
@@ -988,7 +983,7 @@
 
     <script id="domainFunctions">
         const regexes = {
-            chord: rgx(/^|(?<=[\s|()\-}])/,
+            chord: rgx(/^|(?<=[\s|()\-╶}╴⏜⏝◠◡⌒⌣])/,
                        rgx({name: "prefix", optional: true}, /\+|⁺|•|\^|⌄|⤺|ᑉ|~/),
                        rgx({name: "chord"},
                            [/N\.C\./,
@@ -1004,14 +999,15 @@
                                     ]),
                                 rgx({optional: true}, /\//, rgx("bass", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/)))
                            ]),
-                        rgx({name: "suffix", optional: true, repeat: true}, /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|•|▮|▯|⋈|⧓|\.|…|‥|․|♪|♩|𝄐|⏜|⏝|◠|◡|◇|⬦|♢|◆|♦|①|②|④|⑧|⑯|❶|❷|❹|❽|⓰/),
-                        /$|(?=[\s|:()\-*,{])/),
+                        rgx({name: "suffix", optional: true, repeat: true},
+                            /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|•|▮|▯|▚|⋈|⧓|\.|…|‥|․|♪|♩|𝄐|Δ|▲|⏜|⏝|◠|◡|⌒|⌣|⬭|◇|⬦|♢|◆|♦|①|②|④|⑧|⑯|❶|❷|❹|❽|⓰/),
+                        /$|(?=[\s|:()\-╶*╴,{⏜⏝◠◡⌒⌣])/),
 
-            allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]]/,
+            allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]⏜⏝◠◡⌒⌣]/,
             fingering: /((\d|x){4,7})/,
-            tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-|()~\dhpx]+\|$/i,
-            tablatureTiming: /^\s*(⧖|⏲|𝄞)\|[\-|()\d◇․♩.…♪‥⌇𐒇▬⬓⬒⌒⏑⏜⏝◠◡⬭⬬\s]+\|$/i,
-            metadata: /^(?<preWhitespace>\s)*(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/,
+            tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-─|()~\dhpx]+\|$/i,
+            tablatureTiming: /^\s*(⧖|⏲|𝄞)\|[\-─|()◇․♩.…♪‥⌇𐒇▬⬓⬒⌒⏑⏜⏝◠◡⌒⌣⬭⬬①②④⑧⑯❶❷❹❽⓰𝄐\s]+\|$/i,
+            metadata: /^(?<preWhitespace>\s*)(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/,
             header: /^(?<preWhitespace>\s*)(?<opener>\[)(?<content>[^\]]+)(?<closer>\])(?<postWhitespace>\s*)$/,
             capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/i
         };
