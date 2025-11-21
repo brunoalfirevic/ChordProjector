@@ -261,6 +261,7 @@
         .colorful-headers .line .inline-metadata .brace:last-child {
             margin-left: -0.2em;
         }
+
         .colorful-headers .line.header-line .title {
             font-family: Verdana, Geneva, Tahoma, sans-serif;
             font-size: 0.98em;
@@ -343,13 +344,73 @@
             font-weight: 700;
         }
 
-        .line .char[content="𝄐"] {
-            display: inline-block;
-            width: 1ch;
-            text-align: center;
-            vertical-align: middle;
-            font-weight: 700;
-            font-family: 'Noto Music';
+        .polished {
+            .line .chord-suffix .char[content="."] {
+                font-weight: 700;
+            }
+
+            /* Symbol for pushed chord */
+            .chord-prefix .char[content="⤺"],
+            .chord-prefix .char[content="ᑉ"],
+            .chord-prefix .char[content="<"],
+            .chord-prefix .char[content=">"],
+            .chord-prefix .char[content="~"] {
+                position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
+
+                &::after {
+                    position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
+
+                    content: '⤺';
+
+                    margin-top: -0.2em;
+                    font-weight: 700;
+                }
+            }
+
+            /* Musical notes */
+            .line .chord-suffix,
+            .tablature-timing-line {
+                .char[content="𝄐"],
+                .char[content="◇"],
+                .char[content="①"],
+                .char[content="②"],
+                .char[content="④"],
+                .char[content="⑧"],
+                .char[content="⑯"],
+                .char[content="❶"],
+                .char[content="❷"],
+                .char[content="❹"],
+                .char[content="❽"],
+                .char[content="⓰"],
+                .char[content="♪"],
+                .char[content="♩"],
+                .char[content="⌇"] {
+                    position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
+
+                    &::after {
+                        position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
+
+                        width: 1ch;
+                        text-align: center;
+                        font-family: 'Noto Music';
+                        font-weight: 700;
+                    }
+
+                    &[content="𝄐"]::after { content: '𝄐'; margin-top: 0.3em;}
+
+                    &[content="①"]::after, &[content="◇"]::after { content: '𝅝'; }
+                    &[content="②"]::after { content: '𝅗𝅥'; }
+                    &[content="⑧"]::after, &[content="♪"]::after { content: '𝅘𝅥𝅮'; }
+                    &[content="④"]::after, &[content="♩"]::after { content: '𝅘𝅥'; }
+                    &[content="⑯"]::after { content: '𝅘𝅥𝅯'; }
+
+                    &[content="❶"]::after { content: '𝄻'; }
+                    &[content="❷"]::after { content: '𝄼'; }
+                    &[content="❹"]::after, &[content="⌇"]::after { content: '𝄽'; }
+                    &[content="❽"]::after { content: '𝄾'; }
+                    &[content="⓰"]::after { content: '𝄿'; }
+                }
+            }
         }
     </style>
 </head>
