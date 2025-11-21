@@ -704,6 +704,44 @@
             }
         }
 
+        rgx.of = function(optionArg, characters) {
+            if (optionArg == undefined && characters == undefined) {
+                throw new Error("Invalid arguments");
+            } else if (characters == undefined) {
+                characters = optionArg;
+                optionArg = {};
+            } else if (typeof optionArg === 'string' || optionArg instanceof String) {
+                optionArg = {name: optionArg};
+            }
+
+            return rgx(optionArg, new RegExp(RegExp.escape(characters)));
+        };
+
+        rgx.chars = function(optionArg, characters) {
+            if (optionArg == undefined && characters == undefined) {
+                throw new Error("Invalid arguments");
+            } else if (characters == undefined) {
+                characters = optionArg;
+                optionArg = {};
+            } else if (typeof optionArg === 'string' || optionArg instanceof String) {
+                optionArg = {name: optionArg};
+            }
+
+            characters = characters.replaceAll(/\s+/g, '');
+            const pattern = characters.length == 1 && !optionArg.whitespace
+                ? RegExp.escape(characters)
+                : `[${optionArg.whitespace ? '\\s' : ''}${RegExp.escape(characters)}]`;
+            return rgx(optionArg, new RegExp(pattern));
+        };
+
+        rgx.lookAhead = function(...regexes) {
+            return new RegExp(`(?=${rgx(...regexes).source})`);
+        }
+
+        rgx.lookBehind = function(...regexes) {
+            return new RegExp(`(?<=${rgx(...regexes).source})`);
+        }
+
         const regexCache = (function() {
             const cacheMap = new Map();
             const delimiter = "f47d9a9a-947f-420c-ab23-d084dce6b7ee";
@@ -1004,35 +1042,41 @@
     </script>
 
     <script id="domainFunctions">
-        const regexes = {
-            chord: rgx(/^|(?<=[\s|()\-╶}╴⏜⏝◠◡⌒⌣])/,
-                       rgx({name: "prefix", optional: true}, /\+|⁺|•|\^|⌄|⤺|ᑉ|~/),
-                       rgx({name: "chord"},
-                           [/N\.C\./,
-                            /%/,
-                            /X/,
-                            rgx(rgx("root", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/),
-                                rgx({name: "variant", optional: true},
-                                    [/(maj7|M7|7)?sus(2|4)?/,
-                                     /dim|aug|M|°|ø/,
-                                     rgx(/(m|min)?/,
-                                         /(2|4|5|6|((maj|M)?(7|9|11|13)))?/,
-                                         /((♯|#|b|♭)(5|9)|add(♯|#|b|♭)?(9|11|13))?/)
-                                    ]),
-                                rgx({optional: true}, /\//, rgx("bass", /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/)))
-                           ]),
-                        rgx({name: "suffix", optional: true, repeat: true},
-                            /⁰|¹|²|³|⁴|⁵|⁶|⁷|⁸|⁹|ᐟ|ᐧ|⁺|•|▮|▯|▚|⋈|⧓|\.|…|‥|․|♪|♩|𝄐|Δ|▲|⏜|⏝|◠|◡|⌒|⌣|⬭|◇|⬦|♢|◆|♦|①|②|④|⑧|⑯|❶|❷|❹|❽|⓰/),
-                        /$|(?=[\s|:()\-╶*╴,{⏜⏝◠◡⌒⌣])/),
+        const regexes = (function() {
+            const noteNames = /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/;
+            const musicalSymbols = '. … ‥ ․ ‾¯ ^⌃Δ▲ -⏜⏝◠◡⌒⌣ ⬭⬬ ◇⬦♢◆♦ ♩♪𝄐 𐒇⌇▬⬓⬒ ①②④⑧⑯❶❷❹❽⓰';
+            const beatSymbols = '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ ₀₁₂₃₄₅₆₇₈₉₊₋₌ •▮ ▚ ▯ ◫⎅ ⋈⧓';
 
-            allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]⏜⏝◠◡⌒⌣]/,
-            fingering: /((\d|x){4,7})/,
-            tablature: /^\s*((C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?)\|[\-─|()~\dhpx]+\|$/i,
-            tablatureTiming: /^\s*(⧖|⏲|𝄞)\|[\-─|()◇․♩.…♪‥⌇𐒇▬⬓⬒⌒⏑⏜⏝◠◡⌒⌣⬭⬬①②④⑧⑯❶❷❹❽⓰𝄐\s]+\|$/i,
-            metadata: /^(?<preWhitespace>\s*)(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/,
-            header: /^(?<preWhitespace>\s*)(?<opener>\[)(?<content>[^\]]+)(?<closer>\])(?<postWhitespace>\s*)$/,
-            capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/i
-        };
+            return {
+                chord: rgx([/^/, rgx.lookBehind(rgx.chars({whitespace: true}, '|()-╶}╴⏜⏝◠◡⌒⌣'))],
+                           rgx.chars({name: "prefix", optional: true}, '⤺ᑉ~<>'),
+                           rgx({name: "chord"},
+                               [rgx.of('N.C.'),
+                                /%/,
+                                /X/,
+                                rgx(rgx("root", noteNames),
+                                    rgx({name: "variant", optional: true},
+                                        [/(maj7|M7|7)?sus(2|4)?/,
+                                            /dim|°|ø|aug|M/, // ° is diminished, ø is half-diminished
+                                            rgx(/(m|min)?/,
+                                                /(2|4|5|6|((maj|M)?(7|9|11|13)))?/,
+                                                /((♯|#|b|♭)(5|9)|add(♯|#|b|♭)?(9|11|13))?/)
+                                        ]),
+                                    rgx({optional: true}, rgx.of('/'), rgx("bass", noteNames)))
+                               ]),
+                           rgx.chars({name: "suffix", optional: true, repeat: true}, beatSymbols + musicalSymbols),
+                           [/$/, rgx.lookAhead(rgx.chars({whitespace: true}, '|()-╶{╴⏜⏝◠◡⌒⌣,:*'))]),
+
+                allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]⏜⏝◠◡⌒⌣]/,
+                fingering: /(\d|x){4,7}/,
+                tablature: rgx({flags: 'i'},
+                               /^\s*/, noteNames, rgx.of('|'), rgx.chars({repeat: true}, '-─|()~0123456789hpx'), rgx.of('|'), /$/),
+                tablatureTiming: rgx(/^\s*/, rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: true}, '|' + musicalSymbols), rgx.of('|'), /$/),
+                metadata: /^(?<preWhitespace>\s*)(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/,
+                header: /^(?<preWhitespace>\s*)(?<opener>\[)(?<content>[^\]]+)(?<closer>\])(?<postWhitespace>\s*)$/,
+                capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/i
+            }
+        })();
 
         const noteChart = (function() {
             const notes = {
