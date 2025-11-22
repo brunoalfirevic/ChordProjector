@@ -84,10 +84,6 @@
             margin-right: 2px;
         }
 
-        .controls input {
-            width: 50px;
-        }
-
         .controls input[type="checkbox"] {
             width: 13px;
             margin-top: 8px;
@@ -95,6 +91,13 @@
 
         .controls input, .controls select {
             margin: 3px;
+            width: 50px;
+            box-sizing: content-box;
+        }
+
+        .controls select {
+            padding-block: 1px;
+            padding-inline: 3px;
         }
 
         .controls button {
@@ -207,6 +210,10 @@
             padding-left: .13em;
             margin-right: -.13em;
             padding-right: .13em;
+        }
+
+        .line .chord.nashville {
+            font-family: 'Julia Mono Webfont';
         }
 
         .colorful-chords .line .chord {
@@ -434,6 +441,11 @@
                     </div>
 
                     <div class="flex-row">
+                        <label for="stylizeAccidentals">Stylize accidentals:</label>
+                        <input type="checkbox" id="stylizeAccidentals" value="true">
+                    </div>
+
+                    <div class="flex-row">
                         <label for="colorfulChords">Colorful chords:</label>
                         <input type="checkbox" id="colorfulChords" value="true" checked>
                     </div>
@@ -451,6 +463,11 @@
                     </div>
 
                     <div class="flex-row">
+                        <label for="useNashvilleNotation">Nashville notation:</label>
+                        <input type="checkbox" id="useNashvilleNotation" value="true">
+                    </div>
+
+                    <div class="flex-row">
                         <label for="colorfulHeaders">Colorful headers:</label>
                         <input type="checkbox" id="colorfulHeaders" value="true" checked>
                     </div>
@@ -460,16 +477,20 @@
                     <div class="flex-row">
                         <label for="preferredAccidental">Preferred accidental:</label>
                         <select id="preferredAccidental">
-                            <option value="#" selected>#</option>
-                            <option value="♯">♯ (stylized)</option>
+                            <option value="auto" selected>Auto</option>
+                            <option value="#">#</option>
                             <option value="b">b</option>
-                            <option value="♭">♭ (stylized)</option>
                         </select>
                     </div>
 
                     <div class="flex-row">
                         <label for="capoAsWritten">Written with capo:</label>
                         <input type="number" id="capoAsWritten" min="0" max="12" value="0">
+                    </div>
+
+                    <div class="flex-row">
+                        <label for="useAccidentalsFromKey">Use accidentals from key:</label>
+                        <input type="checkbox" id="useAccidentalsFromKey" value="true" checked>
                     </div>
 
                     <div class="flex-row">
@@ -606,6 +627,10 @@
                    0;
         }
 
+        function isDigit(str) {
+            return str && str.length == 1 && str >= '0' && str <= '9';
+        }
+
         function toString(value) {
             return value == undefined ? '' : `${value}`;
         }
@@ -707,6 +732,13 @@
         }
 
         function span(content, className) {
+            let shouldEncode = true;
+
+            if (typeof content === 'function') {
+                content = content();
+                shouldEncode = false;
+            }
+
             if (isEmpty(content)) {
                 return '';
             }
@@ -715,7 +747,7 @@
                 className = className.filter(v => !!v).join(" ");
             }
 
-            return `<span class='${className}'>${encodeHtml(content)}</span>`;
+            return `<span class='${className}'>${shouldEncode ? encodeHtml(content) : content}</span>`;
         }
 
         function rgx(optionArg, ...args) {
@@ -1103,8 +1135,38 @@
     </script>
 
     <script id="domainFunctions">
+        function transp(degree, transpose) {
+            degree += transpose;
+            degree %= 12;
+            if (degree < 0) {
+                degree += 12;
+            }
+            return degree;
+        }
+
+        function parallelMinorOfMajorKey(keyDegree) {
+            return transp(keyDegree, 3);
+        }
+
+        function parallelMajorOfMajorKey(keyDegree) {
+            return transp(keyDegree, 9);
+        }
+
+        function relativeMinorOfMajorKey(keyDegree) {
+            return transp(keyDegree, -3);
+        }
+
+        function normalizeAccidentals(note) {
+           return note.replaceAll('♯', '#').replaceAll('♭', 'b');
+        }
+
+        function stylizeAccidentals(note) {
+            return note.replaceAll('#', '♯').replaceAll('b', '♭');
+        }
+
         const regexes = (function() {
-            const noteNames = /(C|F)(♯|#)?|(E|B|H)(b|♭)?|(D|G|A)(♯|#|b|♭)?/;
+            const noteNames = /(C|D|E|F|G|A|B|H)(♯|#|b|♭){0,2}/;
+
             const musicalSymbols = '. … ‥ ․ ‾¯ ^⌃Δ▲ -⏜⏝◠◡⌒⌣ ⬭⬬ ◇⬦♢◆♦ ♩♪𝄐 𐒇⌇▬⬓⬒ ①②④⑧⑯❶❷❹❽⓰';
             const beatSymbols = '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ ₀₁₂₃₄₅₆₇₈₉₊₋₌ •▮ ▚ ▯ ◫⎅ ⋈⧓';
 
@@ -1117,11 +1179,15 @@
                                 /X/,
                                 rgx(rgx("root", noteNames),
                                     rgx({name: "variant", optional: true},
-                                        [/(maj7|M7|7)?sus(2|4)?/,
-                                            /dim|°|ø|aug|M/, // ° is diminished, ø is half-diminished
-                                            rgx(/(m|min)?/,
-                                                /(2|4|5|6|((maj|M)?(7|9|11|13)))?/,
-                                                /((♯|#|b|♭)(5|9)|add(♯|#|b|♭)?(9|11|13))?/)
+                                        [/(maj7|M7|7)?(?<isSuspended>sus)(2|4)?/,
+                                         /(?<isDiminished>dim|°|ø)7?/, // ° is diminished, ø is half-diminished
+                                         /(?<isAugmented>aug)7?/,
+                                         /M/,
+                                         /(?<isPower>5)/,
+                                         rgx(/(?<isMinor>m|min)?/,
+                                             /(2|4|6|((maj|M)?(7|9|11|13)))?/,
+                                             rgx({optional: true},
+                                                 [/(?<hasFlatFifth>b5|♭5)/, /♯5|#5/, /(♯|#|b|♭)9/, /add(♯|#|b|♭)?(9|11|13)/]))
                                         ]),
                                     rgx({optional: true}, rgx.of('/'), rgx("bass", noteNames)))
                                ]),
@@ -1132,27 +1198,87 @@
                 fingering: /(\d|x){4,7}/,
                 tablature: rgx({flags: 'i'},
                                /^\s*/, noteNames, rgx.of('|'), rgx.chars({repeat: true}, '-─|()~0123456789hpx'), rgx.of('|'), /$/),
-                tablatureTiming: rgx(/^\s*/, rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: true}, '|' + musicalSymbols), rgx.of('|'), /$/),
-                metadata: /^(?<preWhitespace>\s*)(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/,
+                tablatureTiming: rgx({flags: 'u'}, /^\s*/, rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: true}, '|' + musicalSymbols), rgx.of('|'), /$/),
                 header: /^(?<preWhitespace>\s*)(?<opener>\[)(?<content>[^\]]+)(?<closer>\])(?<postWhitespace>\s*)$/,
+                metadata: /^(?<preWhitespace>\s*)(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/,
                 capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/i
             }
         })();
 
         const noteChart = (function() {
-            const notes = {
-                '#': ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
-                '♯': ['C', 'C♯', 'D', 'D♯', 'E', 'F', 'F♯', 'G', 'G♯', 'A', 'A♯', 'B'],
-                'b': ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
-                '♭': ['C', 'D♭', 'D', 'E♭', 'E', 'F', 'G♭', 'G', 'A♭', 'A', 'B♭', 'B']
-            };
-
-            const noteDegrees = {'H': 11};
-            for (const noteValues of Object.values(notes)) {
-                noteValues.forEach((note, i) => noteDegrees[note] = i);
+            function keyAccidental(keyName, preferredAccidental) {
+                return keyName == 'C' ? (preferredAccidental ?? 'auto') :
+                       keyName == 'F' ? 'b' :
+                       keyName.includes('b') ? 'b' :
+                       '#';
             }
 
-            return {notes, noteDegrees};
+            const preferredKeys = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
+
+            const notes = {
+                '#':       ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+                'b':       ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
+                'auto':    ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'],
+                'numeral': ['1', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7']
+            };
+
+            const wholeNoteDegrees = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11, 'H': 11};
+
+            const notesByKey = {
+                //     0     1     2     3     4      5     6     7     8     9      10    11
+                //     1           2           3      4           5           6            7
+                'C':  ['C',  null, 'D',  null, 'E',   'F',  null, 'G',  null, 'A',   null, 'B'  ],
+                'C#': ['C#', null, 'D#', null, 'E#',  'F#', null, 'G#', null, 'A#',  null, 'B#' ],
+                'Db': ['Db', null, 'Eb', null, 'F',   'Gb', null, 'Ab', null, 'Bb',  null, 'C'  ],
+                'D':  ['D',  null, 'E',  null, 'F#',  'G',  null, 'A',  null, 'B',   null, 'C#' ],
+                'D#': ['D#', null, 'E#', null, 'F##', 'G#', null, 'A#', null, 'B#',  null, 'C##'],
+                'Eb': ['Eb', null, 'F',  null, 'G',   'Ab', null, 'Bb', null, 'C',   null, 'D'  ],
+                'E':  ['E',  null, 'F#', null, 'G#',  'A',  null, 'B',  null, 'C#',  null, 'D#' ],
+                'F':  ['F',  null, 'G',  null, 'A',   'Bb', null, 'C',  null, 'D',   null, 'E'  ],
+                'F#': ['F#', null, 'G#', null, 'A#',  'B',  null, 'C#', null, 'D#',  null, 'E#' ],
+                'Gb': ['Gb', null, 'Ab', null, 'Bb',  'Cb', null, 'Db', null, 'Eb',  null, 'F'  ],
+                'G':  ['G',  null, 'A',  null, 'B',   'C',  null, 'D',  null, 'E',   null, 'F#' ],
+                'G#': ['G#', null, 'A#', null, 'B#',  'C#', null, 'D#', null, 'E#',  null, 'F##'],
+                'Ab': ['Ab', null, 'Bb', null, 'C',   'Db', null, 'Eb', null, 'F',   null, 'G'  ],
+                'A':  ['A',  null, 'B',  null, 'C#',  'D',  null, 'E',  null, 'F#',  null, 'G#' ],
+                'A#': ['A#', null, 'B#', null, 'C##', 'D#', null, 'E#', null, 'F##', null, 'G##'],
+                'Bb': ['Bb', null, 'C',  null, 'D',   'Eb', null, 'F',  null, 'G',   null, 'A'  ],
+                'B':  ['B',  null, 'C#', null, 'D#',  'E',  null, 'F#', null, 'G#',  null, 'A#' ]
+            };
+
+            return {
+                getNoteDegree: function(noteName) {
+                    noteName = normalizeAccidentals(noteName);
+
+                    const correction = noteName.includes('##') ? 2 :
+                                       noteName.includes('#') ? 1 :
+                                       noteName.includes('bb') ? -2 :
+                                       noteName.includes('b') ? - 1 :
+                                       0;
+
+                    noteName = noteName.replaceAll('b', '').replaceAll('#', '');
+                    return transp(wholeNoteDegrees[noteName], correction);
+                },
+
+                getNoteByDegree: function(degree, preferredAccidental) {
+                    return notes[preferredAccidental ?? 'auto'][degree];
+                },
+
+                getNoteByDegreeAndKey(noteDegree, keyDegree, preferredAccidental) {
+                    const keyName = preferredKeys[keyDegree];
+                    let result = notesByKey[keyName][transp(noteDegree, -keyDegree)];
+
+                    if (!result) {
+                        result = notes[keyAccidental(keyName, preferredAccidental)][noteDegree];
+                    }
+
+                    return result;
+                },
+
+                getNumeral(noteDegree, keyDegree) {
+                    return notes['numeral'][transp(noteDegree, -keyDegree)];
+                }
+            };
         })();
 
         function isHeaderLine(line) {
@@ -1192,17 +1318,19 @@
             return !isWhitespace(line) && !isChordLine(line) && !isHighlightedLine(line) && !isTablatureLine(line);
         }
 
-        function processChord(chord, capoAsWritten, transpose, capo, preferredAccidental) {
+        function processChord(chord, key, transpose, noteNamingConfig) {
             function processNote(note) {
-                let degree = noteChart.noteDegrees[note];
+                let degree = transp(noteChart.getNoteDegree(note), transpose);
 
-                degree += (transpose ?? 0) - (capo ?? 0) + capoAsWritten;
-                degree %= 12;
-                if (degree < 0) {
-                    degree += 12;
+                if (key != undefined && noteNamingConfig.useNashvilleNotation) {
+                    return noteChart.getNumeral(degree, transp(key, transpose));
                 }
 
-                return noteChart.notes[preferredAccidental ?? '♯'][degree];
+                if (key != undefined && noteNamingConfig.useAccidentalsFromKey) {
+                    return noteChart.getNoteByDegreeAndKey(degree, transp(key, transpose), noteNamingConfig.preferredAccidental);
+                }
+
+                return noteChart.getNoteByDegree(degree, noteNamingConfig.preferredAccidental);
             }
 
             if (!chord.root) {
@@ -1212,11 +1340,19 @@
             let result = processNote(chord.root);
 
             if (chord.variant) {
-                result += chord.variant;
+                if (key != undefined && noteNamingConfig.useNashvilleNotation &&
+                    isDigit(result.slice(-1)) && isDigit(chord.variant.slice(0, 1))) {
+                    result += 'ᕯ'
+                }
+                result += !noteNamingConfig.shouldStylizeAccidental ? normalizeAccidentals(chord.variant) : chord.variant;
             }
 
             if (chord.bass) {
                 result += "/" + processNote(chord.bass);
+            }
+
+            if (noteNamingConfig.shouldStylizeAccidental) {
+                result = stylizeAccidentals(result);
             }
 
             return result;
@@ -1232,23 +1368,23 @@
                         .join('')
         }
 
-        function spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental) {
-            const chordMatches = matchAll(line, regexes.chord);
-            if (chordMatches.length == 0 || (chordMatches.length < 2 && !isChordLine(line))) {
-                return encodeHtml(line);
+        function spanifyChords(line, transpose, noteNamingConfig) {
+            if (line.chords.length == 0 || (line.chords.length < 2 && !line.is('chords'))) {
+                return encodeHtml(line.text);
             }
 
             const chordOrMetadataRegex = rgx([/{(?<metadata>[^{}]+)}/,
                                               rgx(regexes.chord, /(?<whitespace>\s*)/)]);
 
-            return replaceAll(line, chordOrMetadataRegex, (match, captureGroups, offset) => {
+            return replaceAll(line.text, chordOrMetadataRegex, (match, captureGroups, offset) => {
                 if (captureGroups.metadata) {
-                    return `<span class="inline-metadata">${span('{', 'brace') +
-                                                            span(captureGroups.metadata, 'content') +
-                                                            span('}', 'brace')}</span>`;
+                    return span(() => span('{', 'brace') +
+                                      span(captureGroups.metadata, 'content') +
+                                      span('}', 'brace'),
+                                'inline-metadata');
                 }
 
-                const chord = processChord(captureGroups, capoAsWritten, transpose, capo, preferredAccidental);
+                const chord = processChord(captureGroups, line.key, transpose, noteNamingConfig);
 
                 let whitespace = captureGroups.whitespace ?? '';
                 const lengthDiff = chord.length - captureGroups.chord.length;
@@ -1258,57 +1394,58 @@
                 } else if (lengthDiff > 0 && whitespace.length >= 1) {
                     // if followed by a bar that's not the last character in the line
                     const nextCharIndex = offset + match.length;
-                    const canRemoveAllWhitespace = line[nextCharIndex] == '|' &&
-                                                   nextCharIndex < line.length - 1;
+                    const canRemoveAllWhitespace = line.text[nextCharIndex] == '|' &&
+                                                   nextCharIndex < line.text.length - 1;
 
                     whitespace = whitespace.substring(canRemoveAllWhitespace
                                                         ? lengthDiff
                                                         : Math.min(lengthDiff, whitespace.length - 1));
                 }
 
-                return '<span class="chord-container">' +
-                       (captureGroups.prefix
-                            ? `<span class="chord-prefix">${charSpans(captureGroups.prefix)}</span>`
-                            : '') +
-                       span(chord, 'chord') +
-                       (captureGroups.suffix
-                            ? `<span class="chord-suffix">${charSpans(captureGroups.suffix)}</span>`
-                            : '') +
-                       '</span>' +
+                return span(() => span(() => charSpans(captureGroups.prefix), 'chord-prefix') +
+                                  span(() => charSpans(chord),
+                                       ['chord', line.key != undefined && noteNamingConfig.useNashvilleNotation && 'nashville']) +
+                                  span(() => charSpans(captureGroups.suffix), 'chord-suffix'),
+                            'chord-container') +
                        whitespace;
             }, encodeHtml).replaceAll('|', charSpans);
         }
 
-        function createLineHtmlElement(line, nextLine, capoAsWritten, transpose, capo, preferredAccidental) {
-            if (isWhitespace(line)) {
-                const element = createElement('div', ['line', 'empty-line', isHighlightedLine(nextLine) && 'pre-highlighted-line']);
+        function createLineHtmlElement(line, transpose, noteNamingConfig) {
+            if (line.is('whitespace')) {
+                const element = createElement('div', ['line', 'empty-line', line.nextLine?.is('highlighted') && 'pre-highlighted-line']);
                 element.innerHTML = "<br>"
                 return element;
-            } else if (isHeaderLine(line)) {
+            } else if (line.is('header')) {
                 const element = createElement('div', ['line', 'header-line', 'highlighted-line']);
-                element.innerHTML = replaceAll(line, regexes.header, (match, groups) =>
-                    `<span>${span(groups.preWhitespace, 'wh') +
-                             span(groups.opener, 'bracket') +
-                             span(groups.content, 'title') +
-                             span(groups.closer, 'bracket') +
-                             span(groups.postWhitespace, 'wh')}</span>`);
+                element.innerHTML = replaceAll(line.text, regexes.header, (match, groups) =>
+                    span(() => span(groups.preWhitespace, 'wh') +
+                               span(groups.opener, 'bracket') +
+                               span(groups.content, 'title') +
+                               span(groups.closer, 'bracket') +
+                               span(groups.postWhitespace, 'wh')));
                 return element;
-            } else if (isMetadataLine(line)) {
+            } else if (line.is('metadata')) {
                 const element = createElement('div', ['line', 'metadata-line', 'highlighted-line']);
-                element.innerHTML = replaceAll(line, regexes.metadata, (match, groups) =>
-                    `<span>${span(groups.preWhitespace, 'wh') +
-                             span(groups.opener, 'brace') +
-                             span(groups.content, 'metadata') +
-                             span(groups.closer, 'brace') +
-                             span(groups.postWhitespace, 'wh')}</span>`);
+                element.innerHTML = replaceAll(line.text, regexes.metadata, (match, groups) =>
+                    span(() => span(groups.preWhitespace, 'wh') +
+                               span(groups.opener, 'brace') +
+                               span(groups.content, 'metadata') +
+                               span(groups.closer, 'brace') +
+                               span(groups.postWhitespace, 'wh')));
                 return element;
-            } else if (isTablatureLine(line)) {
-                const element = createElement('div', ['line', 'tablature-line']);
-                element.innerHTML = charSpans(line);
+            } else if (line.is('tablature')) {
+                const element = createElement('div', ['line',
+                                                      'tablature-line',
+                                                      line.is('tablatureTiming') && 'tablature-timing-line',
+                                                      line.nextLine?.is('tablature') && 'followed-by-tablature-line']);
+                element.innerHTML = charSpans(line.text);
                 return element;
             } else {
-                const element = createElement('div', 'line');
-                element.innerHTML = spanifyChords(line, capoAsWritten, transpose, capo, preferredAccidental);
+                const element = createElement('div', ['line',
+                                                      line.nextLine?.is('tablatureTiming') && 'followed-by-tablature-timing-line',
+                                                      line.nextLine?.is('tablature') && 'pre-tablature-line']);
+                element.innerHTML = spanifyChords(line, transpose, noteNamingConfig);
                 return element;
             }
         }
@@ -1345,50 +1482,140 @@
                     }
                 }
 
-                result.push(lines[i].trimEnd()); // Trim whitespace from the end of each line
+                result.push({text: lines[i].trimEnd()}); // Trim whitespace from the end of each line
 
                 // enforce one empty line before a header or metadata line
                 if (!isWhitespace(lines[i]) && isHighlightedLine(lines[i + 1])) {
-                    result.push("");
+                    result.push({text: ""});
                 }
             };
 
             // Remove empty lines at the end of the text
-            while (result.length > 0 && isWhitespace(result[result.length - 1])) {
+            while (result.length > 0 && isWhitespace(result[result.length - 1].text)) {
                 result.pop();
+            }
+
+            for (let i = 0; i < result.length; i++) {
+                result[i].nextLine = result[i + 1];
+                result[i].previousLine = result[i - 1];
+
+                const text = result[i].text;
+                result[i].tags = [
+                    isWhitespace(text) && 'whitespace',
+                    isHeaderLine(text) && 'header',
+                    isMetadataLine(text) && 'metadata',
+                    isHighlightedLine(text) && 'highlighted',
+                    isTablatureLine(text) && 'tablature',
+                    isTablatureTiming(text) && 'tablatureTiming',
+                    isChordLine(text) && 'chords',
+                    isTextLine(text) && 'text'
+                ].filter(v => !!v);
+
+                result[i].is = function(tag) {
+                    return this.tags.includes(tag);
+                }
+
+                result[i].chords = [];
+                if (isChordLine(text) || isTextLine(text)) {
+                    const chords = matchAll(text, regexes.chord).map(m => m.groups);
+                    if (chords.length >= 2 || isChordLine(text)) {
+                        result[i].chords = chords;
+                    }
+                }
+            }
+
+            const detectedKey = detectKey(result);
+            for (let i = 0; i < result.length; i++) {
+                result[i].key = detectedKey;
             }
 
             return result;
         }
+
+        function detectKey(parsedLines) {
+            function isChordInKey(keyDegree, chord) {
+                const chordsInKey = [];
+                chordsInKey[keyDegree] = 'major';
+                chordsInKey[transp(keyDegree, 2)] = 'minor';
+                chordsInKey[transp(keyDegree, 4)] = 'minor';
+                chordsInKey[transp(keyDegree, 5)] = 'major';
+                chordsInKey[transp(keyDegree, 7)] = 'major';
+                chordsInKey[transp(keyDegree, 9)] = 'minor';
+                chordsInKey[transp(keyDegree, 11)] = 'diminished';
+
+                return chordsInKey[chord.chordDegree] &&
+                       (chordsInKey[chord.chordDegree] == chord.variant ||
+                        ((chord.variant == 'suspended' || chord.variant == 'power') && chordsInKey[chord.chordDegree] != 'diminished'));
+            }
+
+            function chordScoreForKey(keyDegree, chord) {
+                if (isChordInKey(keyDegree, chord)) {
+                    return 0;
+                }
+
+                if (isChordInKey(parallelMinorOfMajorKey(keyDegree), chord) ||
+                    isChordInKey(parallelMajorOfMajorKey(keyDegree), chord)) {
+                    return -1;
+                }
+
+                return -3;
+            }
+
+            const chordsInSong = {};
+            for (const line of parsedLines) {
+                for (const chord of line.chords) {
+                    if (!chord.root || chord.isAugmented) {
+                        continue;
+                    }
+
+                    const variant = (chord.isDiminished || chord.hasFlatFifth) ? 'diminished' :
+                                    chord.isSuspended ? 'suspended' :
+                                    chord.isPower ? 'power' :
+                                    chord.isMinor ? 'minor' :
+                                    'major';
+
+                    const chordDegree = noteChart.getNoteDegree(chord.root);
+                    const chordStr = `${chordDegree}_${variant}`;
+                    const chordInfo = chordsInSong[chordStr] ?? (chordsInSong[chordStr] = {chordDegree, variant, count: 0});
+                    chordInfo.count++;
+                }
+            }
+
+            const keyMatches = [];
+            for (let keyDegree = 0; keyDegree < 12; keyDegree++) {
+                keyMatches.push({
+                    keyDegree,
+                    score: Object.values(chordsInSong)
+                                 .reduce((score, chord) => score + chordScoreForKey(keyDegree, chord) * chord.count, 0)
+                });
+            }
+
+            keyMatches.sort((a, b) => b.score - a.score);
+
+            console.log(keyMatches.length > 0
+                          ? keyMatches.map(m => noteChart.getNoteByDegreeAndKey(m.keyDegree, m.keyDegree) +
+                                                ` (Relative minor: ${noteChart.getNoteByDegreeAndKey(relativeMinorOfMajorKey(m.keyDegree), relativeMinorOfMajorKey(m.keyDegree))}m)` +
+                                                `, Score: ${m.score}`)
+                          : "No key matches");
+
+            return keyMatches[0]?.keyDegree;
+        }
     </script>
 
     <script id="domAndDataManipulationFunctions">
-        function redrawContent() {
+        function redrawContent(lines, fontSize, transpose, noteNamingConfig) {
             doc.content.innerHTML = '';
-            doc.content.style.fontSize = data.fontSize.get() + 'px';
-
-            doc.contentWrapper.style.padding = `${data.padding.get()}px 0px`;
-            doc.contentWrapper.style.margin = `0px ${data.padding.get()}px`;
-
-            applyClass(doc.content, data.colorfulChords.get(), 'colorful-chords');
-            applyClass(doc.content, data.colorfulHeaders.get(), 'colorful-headers');
+            doc.content.style.fontSize = fontSize + 'px';
 
             const availableHeight = elementSize(doc.content, {includePadding: false, includeMargin: false}).height;
 
-            const lines = parseLines(data.text.get());
-            const lineElements = lines.map((line, i) => createLineHtmlElement(line,
-                                                                              lines[i+1],
-                                                                              data.capoAsWritten.get(),
-                                                                              data.transpose.get(),
-                                                                              data.capo.get(),
-                                                                              data.preferredAccidental.get()));
+            const lineElements = lines.map(line => createLineHtmlElement(line, transpose, noteNamingConfig));
 
             const columns = [];
             let currentColumn = null;
 
             for (let i = 0; i < lines.length; i++) {
                 const line = lines[i];
-                const nextLine = lines[i + 1];
 
                 const lineElement = lineElements[i];
                 const nextLineElement = lineElements[i + 1];
@@ -1399,7 +1626,7 @@
                     currentColumn.div.appendChild(lineElement);
                     let requiredHeight = elementSize(lineElement).height;
 
-                    if (isChordLine(line) && isTextLine(nextLine)) {
+                    if (line.is('chords') && line.nextLine?.is('text')) {
                         currentColumn.div.appendChild(nextLineElement);
                         requiredHeight += elementSize(nextLineElement).height;
                         currentColumn.div.removeChild(nextLineElement);
@@ -1408,7 +1635,7 @@
                     lineFitsCurrentColumn = currentColumn.height + requiredHeight <= availableHeight;
 
                     if (!lineFitsCurrentColumn) {
-                        if (isWhitespace(line)) {
+                        if (line.is('whitespace')) {
                             lineElement.classList.add('overflow-y-hidden');
                         } else {
                             currentColumn.div.removeChild(lineElement);
@@ -1420,7 +1647,7 @@
                 }
 
                 if (!lineFitsCurrentColumn) {
-                    if (isWhitespace(line)) {
+                    if (line.is('whitespace')) {
                         continue;
                     }
 
@@ -1451,9 +1678,30 @@
             const minTextLengthForAutoFitting = 100;
             const maxFontSizeForAutoFitting = 20;
 
+            const lines = parseLines(data.text.get());
+
+            const effectiveTransposition = (data.transpose.get() ?? 0) -
+                                           (data.capo.get() ?? 0) +
+                                           (data.capoAsWritten.get() ?? 0);
+
+            const noteNamingConfig = {
+                preferredAccidental: data.preferredAccidental.get(),
+                shouldStylizeAccidental: data.stylizeAccidentals.get(),
+                useNashvilleNotation: data.useNashvilleNotation.get(),
+                useAccidentalsFromKey: data.useAccidentalsFromKey.get()
+            };
+
             const shouldRefit = considerRefitting &&
                                 data.text.get() && data.text.get().length >= minTextLengthForAutoFitting &&
                                 !data.fontSize.hasHashParam();
+
+            doc.content.classList.remove('polished');
+
+            doc.contentWrapper.style.padding = `${data.padding.get()}px 0px`;
+            doc.contentWrapper.style.margin = `0px ${data.padding.get()}px`;
+
+            applyClass(doc.content, data.colorfulChords.get(), 'colorful-chords');
+            applyClass(doc.content, data.colorfulHeaders.get(), 'colorful-headers');
 
             if (shouldRefit) {
                 fullscreen.withTemporaryFullscreen(() => {
@@ -1468,22 +1716,21 @@
                         Math.min(data.fontSize.max, maxFontSizeForAutoFitting),
                         data.fontSize.step,
                         data.fontSize.precision,
-                        fontSize => {
-                            data.fontSize.setElementValueSilently(fontSize);
-                            return {fontSize, contentWidth: redrawContent()};
-                        },
+                        fontSize => ({fontSize, contentWidth: redrawContent(lines, fontSize, effectiveTransposition, noteNamingConfig)}),
                         value => compare(value.contentWidth, availableWidth));
 
                     data.fontSize.setElementValueSilently(result?.fontSize ?? defaultFontSize);
                 });
             }
 
-            redrawContent();
+            redrawContent(lines, data.fontSize.get(), effectiveTransposition, noteNamingConfig);
+
+            doc.content.classList.add('polished');
         }
 
         function inferCapo() {
-            const inferredCapo = inferCapoFromText(data.text.get());
             if (!data.capoAsWritten.hasHashParam()) {
+                const inferredCapo = inferCapoFromText(data.text.get());
                 data.capoAsWritten.setElementValueSilently(inferredCapo);
                 if (!data.capo.hasHashParam()) {
                     data.capo.setElementValueSilently(inferredCapo);
@@ -1530,6 +1777,9 @@
             colorfulChords: bindData({el: doc.colorfulChords, hash: true, cookie: true}, () => redraw()),
             colorfulHeaders: bindData({el: doc.colorfulHeaders, hash: true, cookie: true}, () => redraw()),
             padding: bindData({el: doc.padding, hash: true, cookie: true}, () => redraw()),
+            useNashvilleNotation: bindData({el: doc.useNashvilleNotation, hash: true, cookie: true}, () => redraw()),
+            stylizeAccidentals: bindData({el: doc.stylizeAccidentals, hash: true, cookie: true}, () => redraw()),
+            useAccidentalsFromKey: bindData({el: doc.useAccidentalsFromKey, hash: true, cookie: true}, () => redraw()),
             title: bindData({hash: 'title'}, value => document.title = value)
         };
     </script>
