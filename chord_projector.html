@@ -1153,6 +1153,10 @@
             return transp(keyDegree, -3);
         }
 
+        function relativeMajorOfMinorKey(keyDegree) {
+            return transp(keyDegree, 3);
+        }
+
         function normalizeAccidentals(note) {
            return note.replaceAll('♯', '#').replaceAll('♭', 'b');
         }
@@ -1197,8 +1201,7 @@
                                /^\s*/, noteNames, rgx.of('|'), rgx.chars({repeat: true}, '-─|()~0123456789hpx'), rgx.of('|'), /$/),
                 tablatureTiming: rgx({flags: 'u'}, /^\s*/, rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: true}, '|' + musicalSymbols), rgx.of('|'), /$/),
                 title: /\[(?<title>[^\]]+)\]/,
-                metadata: /{(?<metadata>[^}]+)}/,
-                capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/i
+                metadata: /{(?<metadata>[^}]+)}/
             }
         })();
 
@@ -1254,7 +1257,11 @@
                                        0;
 
                     noteName = noteName.replaceAll('b', '').replaceAll('#', '');
-                    return transp(wholeNoteDegrees[noteName], correction);
+                    if (wholeNoteDegrees[noteName] != undefined) {
+                        return transp(wholeNoteDegrees[noteName], correction);
+                    } else {
+                        return undefined;
+                    }
                 },
 
                 getNoteByDegree: function(degree, preferredAccidental) {
@@ -1445,13 +1452,38 @@
             }
         }
 
+        function extractMetadata(lineText, metadataName) {
+            if (!isHeaderLine(lineText)) {
+                return undefined;
+            }
+
+            const fragmentRegex = rgx({flags: 'i'},
+                                      /^/,
+                                      rgx.of(metadataName),
+                                      /(:|\s)\s*(?<value>.+)$/);
+
+            const metadatas = matchAll(lineText, regexes.metadata).map(m => m.groups.metadata);
+            for (const metadata of metadatas) {
+                const metadataFragments = metadata.split(',').map(s => s.trim());
+                for (const metadataFragment of metadataFragments) {
+                    const value = matchFirst(metadataFragment, fragmentRegex)?.groups.value;
+                    if (value) {
+                        return value;
+                    }
+                }
+            }
+
+            return undefined;
+        }
+
         function inferCapoFromText(text) {
             const lines = text.split('\n');
 
             for (const line of lines) {
-                const capoMetadata = matchFirst(line, regexes.capoMetadata);
-                if (capoMetadata) {
-                    return toFloat(capoMetadata.groups.capo) ?? 0;
+                const capoMetadata = extractMetadata(line, 'capo');
+                const capo = matchFirst(capoMetadata, /^(?<capo>\d+)(th|nd)?$/i)?.groups.capo;
+                if (capo) {
+                    return toFloat(capo) ?? 0;
                 }
             }
 
@@ -1490,6 +1522,7 @@
                 result.pop();
             }
 
+            let hasExplicitKey = false;
             for (let i = 0; i < result.length; i++) {
                 result[i].nextLine = result[i + 1];
                 result[i].previousLine = result[i - 1];
@@ -1508,6 +1541,25 @@
                     return this.tags.includes(tag);
                 }
 
+                result[i].key = result[i - 1]?.key;
+                let keyName = extractMetadata(text, 'key');
+                if (keyName) {
+                    let isMinor = false;
+                    if (keyName.slice(-1) == 'm') {
+                        isMinor = true;
+                        keyName = keyName.slice(0, -1);
+                    }
+
+                    let keyDegree = noteChart.getNoteDegree(keyName);
+                    if (keyDegree != undefined) {
+                        if (isMinor) {
+                            keyDegree = relativeMajorOfMinorKey(keyDegree);
+                        }
+                        result[i].key = keyDegree;
+                        hasExplicitKey = true;
+                    }
+                }
+
                 result[i].chords = [];
                 if (isChordLine(text) || isTextLine(text)) {
                     const chords = matchAll(text, regexes.chord).map(m => m.groups);
@@ -1517,9 +1569,11 @@
                 }
             }
 
-            const detectedKey = detectKey(result);
-            for (let i = 0; i < result.length; i++) {
-                result[i].key = detectedKey;
+            if (!hasExplicitKey) {
+                const detectedKey = detectKey(result);
+                for (let i = 0; i < result.length; i++) {
+                    result[i].key = detectedKey;
+                }
             }
 
             return result;
