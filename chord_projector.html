@@ -1385,12 +1385,11 @@
         }
 
         function spanifyChords(line, transpose, noteNamingConfig) {
-            if (line.chords.length == 0 || (line.chords.length < 2 && !line.is('chords'))) {
+            if (line.chords.length == 0) {
                 return encodeHtml(line.text);
             }
 
-            const chordOrMetadataRegex = rgx([/{(?<metadata>[^{}]+)}/,
-                                              rgx(regexes.chord, /(?<whitespace>\s*)/)]);
+            const chordOrMetadataRegex = rgx([regexes.metadata, rgx(regexes.chord, /(?<whitespace>\s*)/)]);
 
             return replaceAll(line.text, chordOrMetadataRegex, (match, captureGroups, offset) => {
                 if (captureGroups.metadata) {
