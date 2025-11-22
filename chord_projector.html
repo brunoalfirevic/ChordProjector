@@ -225,25 +225,22 @@
             line-height: 1;
         }
 
-        .line.empty-line.pre-highlighted-line + .line.highlighted-line {
+        .line.empty-line.pre-header-line + .line.header-line {
             margin-top: -0.3em;
         }
 
-        .line.highlighted-line + .line.empty-line.pre-highlighted-line {
+        .line.header-line + .line.empty-line.pre-header-line {
             margin-top: -0.5em;
         }
 
-        .line.highlighted-line {
+        .line.header-line {
             padding-bottom: 0.4em;
         }
 
-        .line.highlighted-line > span {
+        .line.header-line .title-container,
+        .line.header-line .metadata-container {
             background-color: rgb(232, 232, 232);
             border-radius: 5px;
-        }
-
-        .line.highlighted-line .wh {
-            display:none;
         }
 
         .line .inline-metadata {
@@ -275,26 +272,26 @@
             letter-spacing: 1px;
         }
 
-        .colorful-headers .line.metadata-line .metadata {
+        .colorful-headers .line.header-line .metadata {
             font-family: Verdana, Geneva, Tahoma, sans-serif;
             font-size: 0.98em;
             font-style: italic;
         }
 
-        .colorful-headers .line.header-line > span {
+        .colorful-headers .line.header-line .title-container {
             background-color: rgb(238, 229, 242);
         }
 
-        .colorful-headers .line.header-line .bracket {
+        .colorful-headers .line.header-line .title-container .bracket {
             font-size: 0.6em;
             color: rgb(232, 232, 232);
         }
 
-        .colorful-headers .line.metadata-line > span {
+        .colorful-headers .line.header-line .metadata-container {
             background-color: rgb(210, 250, 210);
         }
 
-        .colorful-headers .line.metadata-line .brace {
+        .colorful-headers .line.header-line .metadata-container .brace {
             font-size: 0.6em;
             color: rgb(210, 250, 210);
         }
@@ -747,7 +744,7 @@
                 className = className.filter(v => !!v).join(" ");
             }
 
-            return `<span class='${className}'>${shouldEncode ? encodeHtml(content) : content}</span>`;
+            return `<span${isWhitespace(className) ? '' : ` class="${className}"`}>${shouldEncode ? encodeHtml(content) : content}</span>`;
         }
 
         function rgx(optionArg, ...args) {
@@ -1199,8 +1196,8 @@
                 tablature: rgx({flags: 'i'},
                                /^\s*/, noteNames, rgx.of('|'), rgx.chars({repeat: true}, '-─|()~0123456789hpx'), rgx.of('|'), /$/),
                 tablatureTiming: rgx({flags: 'u'}, /^\s*/, rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: true}, '|' + musicalSymbols), rgx.of('|'), /$/),
-                header: /^(?<preWhitespace>\s*)(?<opener>\[)(?<content>[^\]]+)(?<closer>\])(?<postWhitespace>\s*)$/,
-                metadata: /^(?<preWhitespace>\s*)(?<opener>{)(?<content>[^}]+)(?<closer>})(?<postWhitespace>\s*)$/,
+                title: /\[(?<title>[^\]]+)\]/,
+                metadata: /{(?<metadata>[^}]+)}/,
                 capoMetadata: /^{capo(:|\s)?\s*(?<capo>\d+)(th|nd)?(\s[^}]*)?}\s*$/i
             }
         })();
@@ -1282,15 +1279,11 @@
         })();
 
         function isHeaderLine(line) {
-            return !isWhitespace(line) && testRegex(line, regexes.header);
-        }
+            const nothingButTitleOrMetadata = rgx(/^\s*/,
+                                                  rgx({repeat: true}, [regexes.title, regexes.metadata], /\s*/),
+                                                  /$/);
 
-        function isMetadataLine(line) {
-            return !isWhitespace(line) && testRegex(line, regexes.metadata);
-        }
-
-        function isHighlightedLine(line) {
-            return isHeaderLine(line) || isMetadataLine(line);
+            return !isWhitespace(line) && testRegex(line, nothingButTitleOrMetadata);
         }
 
         function isTablatureTiming(line) {
@@ -1315,7 +1308,7 @@
         }
 
         function isTextLine(line) {
-            return !isWhitespace(line) && !isChordLine(line) && !isHighlightedLine(line) && !isTablatureLine(line);
+            return !isWhitespace(line) && !isChordLine(line) && !isHeaderLine(line) && !isTablatureLine(line);
         }
 
         function processChord(chord, key, transpose, noteNamingConfig) {
@@ -1368,6 +1361,22 @@
                         .join('')
         }
 
+        function spanifyHeaderLine(line) {
+            return replaceAll(line.text, rgx([regexes.title, regexes.metadata]), (match, captureGroups) => {
+                if (captureGroups.metadata) {
+                    return span(() => span('{', 'brace') +
+                                      span(captureGroups.metadata, 'metadata') +
+                                      span('}', 'brace'),
+                                'metadata-container');
+                } else {
+                    return span(() => span('{', 'bracket') +
+                                      span(captureGroups.title, 'title') +
+                                      span('}', 'bracket'),
+                                'title-container');
+                }
+            });
+        }
+
         function spanifyChords(line, transpose, noteNamingConfig) {
             if (line.chords.length == 0 || (line.chords.length < 2 && !line.is('chords'))) {
                 return encodeHtml(line.text);
@@ -1413,26 +1422,12 @@
 
         function createLineHtmlElement(line, transpose, noteNamingConfig) {
             if (line.is('whitespace')) {
-                const element = createElement('div', ['line', 'empty-line', line.nextLine?.is('highlighted') && 'pre-highlighted-line']);
+                const element = createElement('div', ['line', 'empty-line', line.nextLine?.is('header') && 'pre-header-line']);
                 element.innerHTML = "<br>"
                 return element;
             } else if (line.is('header')) {
-                const element = createElement('div', ['line', 'header-line', 'highlighted-line']);
-                element.innerHTML = replaceAll(line.text, regexes.header, (match, groups) =>
-                    span(() => span(groups.preWhitespace, 'wh') +
-                               span(groups.opener, 'bracket') +
-                               span(groups.content, 'title') +
-                               span(groups.closer, 'bracket') +
-                               span(groups.postWhitespace, 'wh')));
-                return element;
-            } else if (line.is('metadata')) {
-                const element = createElement('div', ['line', 'metadata-line', 'highlighted-line']);
-                element.innerHTML = replaceAll(line.text, regexes.metadata, (match, groups) =>
-                    span(() => span(groups.preWhitespace, 'wh') +
-                               span(groups.opener, 'brace') +
-                               span(groups.content, 'metadata') +
-                               span(groups.closer, 'brace') +
-                               span(groups.postWhitespace, 'wh')));
+                const element = createElement('div', ['line', 'header-line']);
+                element.innerHTML = spanifyHeaderLine(line);
                 return element;
             } else if (line.is('tablature')) {
                 const element = createElement('div', ['line',
@@ -1469,23 +1464,23 @@
 
             for (let i = 0; i < lines.length; i++) {
                 if (isWhitespace(lines[i])) {
-                    // if two empty lines precede header or metadata line, keep only one
-                    if (isWhitespace(lines[i + 1]) && isHighlightedLine(lines[i + 2])) {
+                    // if two empty lines precede header line, keep only one
+                    if (isWhitespace(lines[i + 1]) && isHeaderLine(lines[i + 2])) {
                         continue;
                     }
 
-                    // remove up to two empty lines after a header or metadata line,
-                    // but keep one empty line if it is between two header/metadata lines
-                    if (isHighlightedLine(lines[i - 1]) && !isHighlightedLine(lines[i + 1]) ||
-                        isWhitespace(lines[i - 1]) && isHighlightedLine(lines[i - 2])) {
+                    // remove up to two empty lines after a header line,
+                    // but keep one empty line if it is between two header lines
+                    if (isHeaderLine(lines[i - 1]) && !isHeaderLine(lines[i + 1]) ||
+                        isWhitespace(lines[i - 1]) && isHeaderLine(lines[i - 2])) {
                         continue;
                     }
                 }
 
                 result.push({text: lines[i].trimEnd()}); // Trim whitespace from the end of each line
 
-                // enforce one empty line before a header or metadata line
-                if (!isWhitespace(lines[i]) && isHighlightedLine(lines[i + 1])) {
+                // enforce one empty line before a header line
+                if (!isWhitespace(lines[i]) && isHeaderLine(lines[i + 1])) {
                     result.push({text: ""});
                 }
             };
@@ -1503,8 +1498,6 @@
                 result[i].tags = [
                     isWhitespace(text) && 'whitespace',
                     isHeaderLine(text) && 'header',
-                    isMetadataLine(text) && 'metadata',
-                    isHighlightedLine(text) && 'highlighted',
                     isTablatureLine(text) && 'tablature',
                     isTablatureTiming(text) && 'tablatureTiming',
                     isChordLine(text) && 'chords',
