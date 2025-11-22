@@ -19,6 +19,14 @@
         @font-face {
             font-family: 'Julia Mono Webfont';
             font-style: normal;
+            font-weight: 300;
+            font-display: block;
+            src: url(fonts/JuliaMono-Light.woff2) format('woff2');
+        }
+
+        @font-face {
+            font-family: 'Julia Mono Webfont';
+            font-style: normal;
             font-weight: 700;
             font-display: block;
             src: url(fonts/JuliaMono-SemiBold.woff2) format('woff2');
@@ -340,16 +348,78 @@
         .flex12 { flex: 12; }
         .flex13 { flex: 13; }
 
-        /* specific character styling */
+        /* Even tighter line spacing for tablature*/
+        .tablature-line:not(.tablature-timing-line) { line-height: 1 !important;}
+        .pre-tablature-line:not(.followed-by-tablature-timing-line) { line-height: 1.15 !important; }
+        .pre-tablature-line + .tablature-timing-line { line-height: 1.15 !important; }
 
-        .line .char[content="|"] {
+        .tablature-line .char {
             display: inline-block;
-            transform: translateY(-1px) scaleY(1.2);
-            font-weight: 700;
+            width: 1ch;
         }
 
         .polished {
-            .line .chord-suffix .char[content="."] {
+            /* Pretty tablatures */
+
+            .tablature-line .char[content="-"],
+            .tablature-line .char[content="|"] {
+                position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
+
+                &::after {
+                    position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
+
+                    font-weight: 300;
+                    color: gray;
+                }
+
+                &[content="-"]::after { content: '─'; }
+            }
+
+            .tablature-line.followed-by-tablature-line {
+                .char[content="|"]::after { content: '┬'; }
+                .char[content="|"]:nth-child(2)::after { content: '┌'; }
+                .char[content="|"]:last-child::after { content: '┐'; }
+            }
+
+            .tablature-line:not(.followed-by-tablature-line) {
+                .char[content="|"]::after { content: '┴'; }
+                .char[content="|"]:nth-child(2)::after { content: '└'; }
+                .char[content="|"]:last-child::after { content: '┘'; }
+            }
+
+            .tablature-line + .tablature-line.followed-by-tablature-line,
+            .pre-tablature-line + .tablature-line.followed-by-tablature-line {
+                .char[content="|"]::after { content: '┼'; }
+                .char[content="|"]:nth-child(2)::after { content: '├'; }
+                .char[content="|"]:last-child::after { content: '┤'; }
+            }
+
+            .tablature-timing-line .char[content="|"]::after {
+                content: '│' !important;
+            }
+
+            .tablature-timing-line:not(.followed-by-tablature-line) .char[content="|"]::after {
+                margin-top: -0.3em;
+            }
+
+            .pre-tablature-line + .tablature-timing-line .char[content="|"]::after {
+                margin-top: -0.2em;
+            }
+
+            .pre-tablature-line .char[content="|"] {
+                color: transparent;
+            }
+
+            /* Specific character styling */
+
+            .line:not(.pre-tablature-line):not(.tablature-line) .char[content="|"] {
+                display: inline-block;
+                transform: translateY(-1px) scaleY(1.2);
+                font-weight: 700;
+            }
+
+            .line .chord-suffix .char[content="."],
+            .tablature-timing-line .char[content="."] {
                 font-weight: 700;
             }
 
