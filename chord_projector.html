@@ -226,13 +226,38 @@
             padding-right: .13em;
         }
 
-        .line .chord.nashville {
-            font-family: 'Julia Mono Webfont';
-        }
-
         .colorful-chords .line .chord {
             color: rgb(0, 123, 255);
             background-color: rgb(240, 248, 255);
+        }
+
+        .line.nashville-legend {
+            padding-bottom: 0.6em;
+        }
+
+        .line.nashville-legend table,
+        .line.nashville-legend th,
+        .line.nashville-legend td
+        {
+            border: 1px solid gray;
+            border-collapse: collapse;
+        }
+
+        .line.nashville-legend th:not(.key-name),
+        .line.nashville-legend td:not(.key-name) {
+            padding-left: 0.3em;
+            padding-right: 0.2em;
+            text-align: left;
+            width: 2ch;
+        }
+
+        .line.nashville-legend .key-name {
+            font-family: Verdana, Geneva, Tahoma, sans-serif;
+            padding-left: 0.3em;
+            padding-right: 0.2em;
+            font-size: 0.8em;
+            text-align: right;
+            width: auto;
         }
 
         .line.empty-line {
@@ -427,6 +452,37 @@
             .line .chord-suffix .char[content="."],
             .tablature-timing-line .char[content="."] {
                 font-weight: 700;
+            }
+
+
+            /* Stylized accidentals */
+            .stylize-accidentals .line .chord .char[content="b"],
+            .stylize-accidentals .line .chord .char[content="#"],
+            .line .chord.nashville .char:first-child[content="b"],
+            .line .chord.nashville .char[content="/"] + .char[content="b"] {
+                position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
+
+                &::after {
+                    position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
+
+                    width: 1ch;
+                    text-align: center;
+                    font-weight: 700;
+                }
+
+                .colorful-chords &::after {
+                    color: rgb(0, 123, 255);
+                }
+
+                &[content="b"]::after {
+                    content: '♭';
+                    text-align: left;
+                    font-family: 'Arial Unicode MS', 'Julia Mono Webfont', monospace;
+                }
+                &[content="#"]::after {
+                    content: '♯';
+                    font-family: 'Arial Unicode MS', 'Julia Mono Webfont', monospace;
+                }
             }
 
             /* Symbol for pushed chord */
@@ -1211,6 +1267,10 @@
 
     <script id="domainFunctions">
         function transp(degree, transpose) {
+            if (degree == undefined) {
+                return undefined;
+            }
+
             degree += transpose;
             degree %= 12;
             if (degree < 0) {
@@ -1237,10 +1297,6 @@
 
         function normalizeAccidentals(note) {
            return note.replaceAll('♯', '#').replaceAll('♭', 'b');
-        }
-
-        function stylizeAccidentals(note) {
-            return note.replaceAll('#', '♯').replaceAll('b', '♭');
         }
 
         const regexes = (function() {
@@ -1279,7 +1335,9 @@
                                /^\s*/, noteNames, rgx.of('|'), rgx.chars({repeat: true}, '-─|()~0123456789hpx'), rgx.of('|'), /$/),
                 tablatureTiming: rgx({flags: 'u'}, /^\s*/, rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: true}, '|' + musicalSymbols), rgx.of('|'), /$/),
                 title: /\[(?<title>[^\]]+)\]/,
-                metadata: /{(?<metadata>[^}]+)}/
+                metadata: /{(?<metadata>[^}]+)}/,
+                keyMetadata: rgx(rgx("keyName", noteNames), /(?<isMinor>m)?/),
+                capoMetadata: /(?<capo>\d+)(?<capoSuffix>th|nd)?/
             }
         })();
 
@@ -1297,7 +1355,7 @@
                 '#':       ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
                 'b':       ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
                 'auto':    ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'],
-                'numeral': ['1', '♭2', '2', '♭3', '3', '4', '♭5', '5', '♭6', '6', '♭7', '7']
+                'numeral': ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
             };
 
             const wholeNoteDegrees = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11, 'H': 11};
@@ -1367,6 +1425,12 @@
             };
         })();
 
+        function getKeyName(keyDegree, noteNamingConfig) {
+            return noteNamingConfig.useAccidentalsFromKey
+                    ? noteChart.getKeyName(keyDegree)
+                    : noteChart.getNoteByDegree(keyDegree, noteNamingConfig.preferredAccidental);
+        }
+
         function isHeaderLine(line) {
             const nothingButTitleOrMetadata = rgx(/^\s*/,
                                                   rgx({repeat: true}, [regexes.title, regexes.metadata], /\s*/),
@@ -1400,16 +1464,68 @@
             return !isWhitespace(line) && !isChordLine(line) && !isHeaderLine(line) && !isTablatureLine(line);
         }
 
-        function processChord(chord, key, transpose, noteNamingConfig) {
+
+        function replaceMetadataFragment(metadata, metadataName, replacerOrMetadataValueRegex, replacer) {
+            const metadataValueRegex = (replacer ? replacerOrMetadataValueRegex : undefined) ?? /.+/;
+            if (!replacer) {
+                replacer = replacerOrMetadataValueRegex;
+            }
+
+            const fragmentRegex = rgx({flags: 'i'},
+                                      rgx.lookBehind(/^\s*/, rgx.of(metadataName), /(:|\s)\s*/),
+                                      rgx.lookAhead(/[^\s]/),
+                                      metadataValueRegex,
+                                      rgx.lookAhead(/\s*$/));
+
+            const metadataFragments = metadata.split(',');
+            const replacements = [];
+            for (const metadataFragment of metadataFragments) {
+                replacements.push(replaceAll(metadataFragment,
+                                             fragmentRegex,
+                                             (match, groups) => replacer(match, groups)));
+            }
+
+            return replacements.join(',');
+        }
+
+        function extractMetadata(metadata, metadataName, metadataValueRegex) {
+            let result = undefined;
+
+            replaceMetadataFragment(metadata, metadataName, metadataValueRegex, (value, groups) => {
+                result = groups ?? value;
+                return value;
+            });
+
+            return result;
+        }
+
+        function extractMetadataFromLine(lineText, metadataName, metadataValueRegex) {
+            if (!isHeaderLine(lineText)) {
+                return undefined;
+            }
+
+            const metadatas = matchAll(lineText, regexes.metadata).map(m => m.groups.metadata);
+            for (const metadata of metadatas) {
+                const metadataFragments = metadata.split(',').map(s => s.trim());
+                const value = extractMetadata(metadata, metadataName, metadataValueRegex);
+                if (value) {
+                    return value;
+                }
+            }
+
+            return undefined;
+        }
+
+        function processChord(chord, key, transposeConfig, noteNamingConfig) {
             function processNote(note) {
-                let degree = transp(noteChart.getNoteDegree(note), transpose);
+                let degree = transposeConfig.transp(noteChart.getNoteDegree(note));
 
                 if (key != undefined && noteNamingConfig.useNashvilleNotation) {
-                    return noteChart.getNumeral(degree, transp(key, transpose));
+                    return noteChart.getNumeral(degree, transposeConfig.transp(key));
                 }
 
                 if (key != undefined && noteNamingConfig.useAccidentalsFromKey) {
-                    return noteChart.getNoteByDegreeAndKey(degree, transp(key, transpose), noteNamingConfig.preferredAccidental);
+                    return noteChart.getNoteByDegreeAndKey(degree, transposeConfig.transp(key), noteNamingConfig.preferredAccidental);
                 }
 
                 return noteChart.getNoteByDegree(degree, noteNamingConfig.preferredAccidental);
@@ -1426,15 +1542,11 @@
                     isDigit(result.slice(-1)) && isDigit(chord.variant.slice(0, 1))) {
                     result += 'ᕯ'
                 }
-                result += !noteNamingConfig.shouldStylizeAccidental ? normalizeAccidentals(chord.variant) : chord.variant;
+                result += normalizeAccidentals(chord.variant);;
             }
 
             if (chord.bass) {
                 result += "/" + processNote(chord.bass);
-            }
-
-            if (noteNamingConfig.shouldStylizeAccidental) {
-                result = stylizeAccidentals(result);
             }
 
             return result;
@@ -1450,11 +1562,26 @@
                         .join('')
         }
 
-        function spanifyHeaderLine(line) {
+        function spanifyHeaderLine(line, transposeConfig, noteNamingConfig) {
             return replaceAll(line.text, rgx([regexes.title, regexes.metadata]), (match, captureGroups) => {
                 if (captureGroups.metadata) {
+                    let metadata = replaceMetadataFragment(captureGroups.metadata, 'key', regexes.keyMetadata, (match, key) => {
+                        const keyDegree = transposeConfig.transp(noteChart.getNoteDegree(key.keyName));
+                        return getKeyName(keyDegree, noteNamingConfig) + (key.isMinor ? 'm' : '');
+
+                        return match;
+                    });
+
+                    metadata = replaceMetadataFragment(metadata, 'capo', regexes.capoMetadata, (match, groups) => {
+                        if (transposeConfig.capo == groups.capo) {
+                            return match;
+                        }
+
+                        return transposeConfig.capo ? transposeConfig.capo : "No capo";
+                    });
+
                     return span(() => span('{', 'brace') +
-                                      span(captureGroups.metadata, 'metadata') +
+                                      span(metadata, 'metadata') +
                                       span('}', 'brace'),
                                 'metadata-container');
                 } else {
@@ -1466,7 +1593,7 @@
             });
         }
 
-        function spanifyChords(line, transpose, noteNamingConfig) {
+        function spanifyChords(line, transposeConfig, noteNamingConfig) {
             if (line.chords.length == 0) {
                 return encodeHtml(line.text);
             }
@@ -1481,7 +1608,7 @@
                                 'inline-metadata');
                 }
 
-                const chord = processChord(captureGroups, line.key, transpose, noteNamingConfig);
+                const chord = processChord(captureGroups, line.key, transposeConfig, noteNamingConfig);
 
                 let whitespace = captureGroups.whitespace ?? '';
                 const lengthDiff = chord.length - captureGroups.chord.length;
@@ -1508,14 +1635,14 @@
             }, encodeHtml).replaceAll('|', charSpans);
         }
 
-        function createLineHtmlElement(line, transpose, noteNamingConfig) {
+        function createLineHtmlElement(line, transposeConfig, noteNamingConfig) {
             if (line.is('whitespace')) {
                 const element = createElement('div', ['line', 'empty-line', line.nextLine?.is('header') && 'pre-header-line']);
                 element.innerHTML = "<br>"
                 return element;
             } else if (line.is('header')) {
                 const element = createElement('div', ['line', 'header-line']);
-                element.innerHTML = spanifyHeaderLine(line);
+                element.innerHTML = spanifyHeaderLine(line, transposeConfig, noteNamingConfig);
                 return element;
             } else if (line.is('tablature')) {
                 const element = createElement('div', ['line',
@@ -1528,41 +1655,16 @@
                 const element = createElement('div', ['line',
                                                       line.nextLine?.is('tablatureTiming') && 'followed-by-tablature-timing-line',
                                                       line.nextLine?.is('tablature') && 'pre-tablature-line']);
-                element.innerHTML = spanifyChords(line, transpose, noteNamingConfig);
+                element.innerHTML = spanifyChords(line, transposeConfig, noteNamingConfig);
                 return element;
             }
-        }
-
-        function extractMetadata(lineText, metadataName) {
-            if (!isHeaderLine(lineText)) {
-                return undefined;
-            }
-
-            const fragmentRegex = rgx({flags: 'i'},
-                                      /^/,
-                                      rgx.of(metadataName),
-                                      /(:|\s)\s*(?<value>.+)$/);
-
-            const metadatas = matchAll(lineText, regexes.metadata).map(m => m.groups.metadata);
-            for (const metadata of metadatas) {
-                const metadataFragments = metadata.split(',').map(s => s.trim());
-                for (const metadataFragment of metadataFragments) {
-                    const value = matchFirst(metadataFragment, fragmentRegex)?.groups.value;
-                    if (value) {
-                        return value;
-                    }
-                }
-            }
-
-            return undefined;
         }
 
         function inferCapoFromText(text) {
             const lines = text.split('\n');
 
             for (const line of lines) {
-                const capoMetadata = extractMetadata(line, 'capo');
-                const capo = matchFirst(capoMetadata, /^(?<capo>\d+)(th|nd)?$/i)?.groups.capo;
+                const capo = extractMetadataFromLine(line, 'capo', regexes.capoMetadata)?.capo;
                 if (capo) {
                     return toFloat(capo) ?? 0;
                 }
@@ -1623,22 +1725,11 @@
                 }
 
                 result[i].key = result[i - 1]?.key;
-                let keyName = extractMetadata(text, 'key');
-                if (keyName) {
-                    let isMinor = false;
-                    if (keyName.slice(-1) == 'm') {
-                        isMinor = true;
-                        keyName = keyName.slice(0, -1);
-                    }
-
-                    let keyDegree = noteChart.getNoteDegree(keyName);
-                    if (keyDegree != undefined) {
-                        if (isMinor) {
-                            keyDegree = relativeMajorOfMinorKey(keyDegree);
-                        }
-                        result[i].key = keyDegree;
-                        hasExplicitKey = true;
-                    }
+                const key = extractMetadataFromLine(text, 'key', regexes.keyMetadata);
+                if (key) {
+                    const keyDegree = noteChart.getNoteDegree(key.keyName);
+                    result[i].key = key.isMinor ? relativeMajorOfMinorKey(keyDegree) : keyDegree;
+                    hasExplicitKey = true;
                 }
 
                 result[i].chords = [];
@@ -1726,13 +1817,53 @@
     </script>
 
     <script id="domAndDataManipulationFunctions">
-        function redrawContent(lines, fontSize, transpose, noteNamingConfig) {
+        function createNashvilleLegend(lines, transposeConfig, noteNamingConfig) {
+            const usedKeys = new Set(lines.map(line => line.key).filter(v => v != undefined));
+
+            if (usedKeys.size == 0) {
+                return undefined;
+            }
+
+            let header = '<th></th>';
+            for(const chordDegreeInCMajor of [0, 2, 4, 5, 7, 9, 11]) {
+                header += `<th>${noteChart.getNumeral(chordDegreeInCMajor, 0)}</th>`;
+            }
+
+            let data = ''
+            for (const key of usedKeys) {
+                const keyDegree = transposeConfig.transp(key);
+
+                const keyName = getKeyName(keyDegree, noteNamingConfig);
+                const relativeMinorKeyName = getKeyName(relativeMinorOfMajorKey(keyDegree), noteNamingConfig);
+
+                data += '<tr>';
+                data += `<th class="key-name">${keyName} (${relativeMinorKeyName}m)</th>`;
+
+                for(const chordDegreeInCMajor of [0, 2, 4, 5, 7, 9, 11]) {
+                    const chordDegree = transp(chordDegreeInCMajor, keyDegree);
+
+                    const chordName = noteNamingConfig.useAccidentalsFromKey
+                        ? noteChart.getNoteByDegreeAndKey(chordDegree, keyDegree, noteNamingConfig.preferredAccidental)
+                        : noteChart.getNoteByDegree(chordDegree, noteNamingConfig.preferredAccidental);
+
+                    data += `<td>${span(() => charSpans(chordName), 'chord')}</td>`
+                }
+
+                data += '</tr>'
+            }
+
+            const legendElement = createElement('div', ['line', 'nashville-legend']);
+            legendElement.innerHTML = `<table><tr>${header}</tr>${data}</table>`;
+            return legendElement;
+        }
+
+        function redrawContent(lines, fontSize, transposeConfig, noteNamingConfig) {
             doc.content.innerHTML = '';
             doc.content.style.fontSize = fontSize + 'px';
 
             const availableHeight = elementSize(doc.content, {includePadding: false, includeMargin: false}).height;
 
-            const lineElements = lines.map(line => createLineHtmlElement(line, transpose, noteNamingConfig));
+            const lineElements = lines.map(line => createLineHtmlElement(line, transposeConfig, noteNamingConfig));
 
             const columns = [];
             let currentColumn = null;
@@ -1776,12 +1907,21 @@
 
                     const newColumnDiv = createElement('div', 'column', {position: 'absolute', visibility: 'hidden'});
                     doc.content.appendChild(newColumnDiv);
+
+                    // Render Nashville legend if needed
+                    const nashvilleLegend = !currentColumn && noteNamingConfig.useNashvilleNotation
+                                                ? createNashvilleLegend(lines, transposeConfig, noteNamingConfig)
+                                                : undefined;
+
+                    if (nashvilleLegend) {
+                        newColumnDiv.appendChild(nashvilleLegend);
+                    }
                     newColumnDiv.appendChild(lineElement);
 
                     currentColumn = {
                         div: newColumnDiv,
-                        width: elementSize(lineElement).width,
-                        height: elementSize(lineElement).height
+                        width: Math.max(elementSize(lineElement).width, nashvilleLegend ? elementSize(nashvilleLegend).width : 0),
+                        height: elementSize(lineElement).height + (nashvilleLegend ? elementSize(nashvilleLegend).height : 0)
                     };
 
                     columns.push(currentColumn);
@@ -1803,32 +1943,42 @@
 
             const lines = parseLines(data.text.get());
 
-            const effectiveTransposition = (data.transpose.get() ?? 0) -
-                                           (data.capo.get() ?? 0) +
-                                           (data.capoAsWritten.get() ?? 0);
-
             const noteNamingConfig = {
                 preferredAccidental: data.preferredAccidental.get(),
-                shouldStylizeAccidental: data.stylizeAccidentals.get(),
                 useNashvilleNotation: data.useNashvilleNotation.get(),
                 useAccidentalsFromKey: data.useAccidentalsFromKey.get()
             };
+
+            const transposeConfig = {
+                transpose: data.transpose.get() ?? 0,
+                capo: data.capo.get() ?? 0,
+                capoAsWritten: data.capoAsWritten.get() ?? 0,
+
+                effectiveTransposition: function() {
+                    return this.transpose - this.capo + this.capoAsWritten;
+                },
+
+                transp: function(degree) {
+                    return transp(degree, this.effectiveTransposition());
+                }
+            }
 
             const shouldRefit = considerRefitting &&
                                 data.text.get() && data.text.get().length >= minTextLengthForAutoFitting &&
                                 !data.fontSize.hasHashParam();
 
-            doc.content.classList.remove('polished');
+            doc.contentWrapper.classList.remove('polished');
 
             doc.contentWrapper.style.padding = `${data.padding.get()}px 0px`;
             doc.contentWrapper.style.margin = `0px ${data.padding.get()}px`;
 
             applyClass(doc.content, data.colorfulChords.get(), 'colorful-chords');
             applyClass(doc.content, data.colorfulHeaders.get(), 'colorful-headers');
+            applyClass(doc.content, data.stylizeAccidentals.get(), 'stylize-accidentals');
 
             if (lines.detectedKey != undefined) {
-                const keyName = noteChart.getKeyName(transp(lines.detectedKey, effectiveTransposition));
-                const relativeMinorKeyName = noteChart.getKeyName(relativeMinorOfMajorKey(transp(lines.detectedKey, effectiveTransposition)));
+                const keyName = getKeyName(transposeConfig.transp(lines.detectedKey), noteNamingConfig);
+                const relativeMinorKeyName = getKeyName(relativeMinorOfMajorKey(transposeConfig.transp(lines.detectedKey)), noteNamingConfig);
                 doc.detectedKey.innerHTML = `Detected key: <strong>${keyName}</strong> (relative minor: <strong>${relativeMinorKeyName}m</strong>)`
             } else {
                 doc.detectedKey.innerHTML = '';
@@ -1847,16 +1997,16 @@
                         Math.min(data.fontSize.max, maxFontSizeForAutoFitting),
                         data.fontSize.step,
                         data.fontSize.precision,
-                        fontSize => ({fontSize, contentWidth: redrawContent(lines, fontSize, effectiveTransposition, noteNamingConfig)}),
+                        fontSize => ({fontSize, contentWidth: redrawContent(lines, fontSize, transposeConfig, noteNamingConfig)}),
                         value => compare(value.contentWidth, availableWidth));
 
                     data.fontSize.setElementValueSilently(result?.fontSize ?? defaultFontSize);
                 });
             }
 
-            redrawContent(lines, data.fontSize.get(), effectiveTransposition, noteNamingConfig);
+            redrawContent(lines, data.fontSize.get(), transposeConfig, noteNamingConfig);
 
-            doc.content.classList.add('polished');
+            doc.contentWrapper.classList.add('polished');
         }
 
         function inferCapo() {
