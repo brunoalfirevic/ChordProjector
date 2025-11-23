@@ -235,6 +235,10 @@
             padding-bottom: 0.6em;
         }
 
+        .line.nashville-legend .chord {
+            background-color: initial !important;
+        }
+
         .line.nashville-legend table,
         .line.nashville-legend th,
         .line.nashville-legend td
@@ -454,10 +458,10 @@
                 font-weight: 700;
             }
 
-
             /* Stylized accidentals */
             .stylize-accidentals .line .chord .char[content="b"],
             .stylize-accidentals .line .chord .char[content="#"],
+            .nashville-legend .nashville-numeral .char[content="b"],
             .line .chord.nashville .char:first-child[content="b"],
             .line .chord.nashville .char[content="/"] + .char[content="b"] {
                 position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
@@ -470,10 +474,6 @@
                     font-weight: 700;
                 }
 
-                .colorful-chords &::after {
-                    color: rgb(0, 123, 255);
-                }
-
                 &[content="b"]::after {
                     content: '♭';
                     text-align: left;
@@ -483,6 +483,11 @@
                     content: '♯';
                     font-family: 'Arial Unicode MS', 'Julia Mono Webfont', monospace;
                 }
+            }
+
+            /* Restore the text color that was set to 'initial' in the stylized accidentals replacement CSS block */
+            .colorful-chords .line .chord .char::after {
+                color: rgb(0, 123, 255) !important;
             }
 
             /* Symbol for pushed chord */
@@ -1006,28 +1011,42 @@
             return !!matchFirst(str, regex);
         }
 
-        function replaceAll(str, regex, replacer, unmatchedProcessor = (v => v)) {
+        function fragmentize(str, regex) {
             const matches = matchAll(str, regex);
 
-            const result = [];
-            let lastStrIndexInResult = -1;
+            const fragments = [];
+            let fragmentizedLength = 0;
 
             for (const match of matches) {
                 const matchedSubstring = str.substring(match.index, match.index + match[0].length);
-                const replacement = replacer(matchedSubstring, match.groups, match.index);
 
-                if (match.index > lastStrIndexInResult + 1) {
-                    result.push(unmatchedProcessor(str.substring(lastStrIndexInResult + 1, match.index),
-                                                   lastStrIndexInResult + 1));
+                if (match.index > fragmentizedLength) {
+                    const unmatchedSubstring = str.substring(fragmentizedLength, match.index);
+                    fragments.push({text: unmatchedSubstring, index: fragmentizedLength, isMatch: false});
                 }
 
-                result.push(replacement);
-                lastStrIndexInResult = match.index + matchedSubstring.length - 1;
+                fragments.push({text: matchedSubstring, index: match.index, isMatch: true, groups: match.groups});
+                fragmentizedLength = match.index + matchedSubstring.length;
             }
 
-            if (str.length > lastStrIndexInResult + 1) {
-                result.push(unmatchedProcessor(str.substring(lastStrIndexInResult + 1),
-                                               lastStrIndexInResult + 1));
+            if (str.length > fragmentizedLength) {
+                const unmatchedSubstring = str.substring(fragmentizedLength);
+                fragments.push({text: unmatchedSubstring, index: fragmentizedLength, isMatch: false});
+            }
+
+            return fragments;
+        }
+
+        function replaceAll(str, regex, replacer, unmatchedProcessor = (v => v)) {
+            const fragments = fragmentize(str, regex);
+
+            const result = [];
+            for (const fragment of fragments) {
+                const replacement = fragment.isMatch
+                                        ? replacer(fragment.text, fragment.groups, fragment.index)
+                                        : unmatchedProcessor(fragment.text, fragment.index);
+
+                result.push(replacement);
             }
 
             return result.join('');
@@ -1049,6 +1068,12 @@
             if (el && el.nodeName == 'INPUT' && el.type == 'checkbox') {
                 parse = parse ?? toBoolean;
                 stringify = stringify ?? toString;
+
+                typeSpecificMethods = {
+                    toggle: function() {
+                        this.set(!this.get());
+                    }
+                }
             } else if (el && el.nodeName == 'INPUT' && el.type == 'number') {
                 const stepAttr = el.step || '1';
                 const [whole, decimal] = stepAttr.split('.');
@@ -1327,6 +1352,7 @@
                                     rgx({optional: true}, rgx.of('/'), rgx("bass", noteNames)))
                                ]),
                            rgx.chars({name: "suffix", optional: true, repeat: true}, beatSymbols + musicalSymbols),
+                           rgx('whitespace', /\s*/),
                            [/$/, rgx.lookAhead(rgx.chars({whitespace: true}, '|()-╶{╴⏜⏝◠◡⌒⌣,:*'))]),
 
                 allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]⏜⏝◠◡⌒⌣]/,
@@ -1464,7 +1490,6 @@
             return !isWhitespace(line) && !isChordLine(line) && !isHeaderLine(line) && !isTablatureLine(line);
         }
 
-
         function replaceMetadataFragment(metadata, metadataName, replacerOrMetadataValueRegex, replacer) {
             const metadataValueRegex = (replacer ? replacerOrMetadataValueRegex : undefined) ?? /.+/;
             if (!replacer) {
@@ -1493,7 +1518,7 @@
 
             replaceMetadataFragment(metadata, metadataName, metadataValueRegex, (value, groups) => {
                 result = groups ?? value;
-                return value;
+                return '';
             });
 
             return result;
@@ -1516,16 +1541,16 @@
             return undefined;
         }
 
-        function processChord(chord, key, transposeConfig, noteNamingConfig) {
+        function processChord(chord, transposeConfig, noteNamingConfig) {
             function processNote(note) {
                 let degree = transposeConfig.transp(noteChart.getNoteDegree(note));
 
-                if (key != undefined && noteNamingConfig.useNashvilleNotation) {
-                    return noteChart.getNumeral(degree, transposeConfig.transp(key));
+                if (chord.key != undefined && noteNamingConfig.useNashvilleNotation) {
+                    return noteChart.getNumeral(degree, transposeConfig.transp(chord.key));
                 }
 
-                if (key != undefined && noteNamingConfig.useAccidentalsFromKey) {
-                    return noteChart.getNoteByDegreeAndKey(degree, transposeConfig.transp(key), noteNamingConfig.preferredAccidental);
+                if (chord.key != undefined && noteNamingConfig.useAccidentalsFromKey) {
+                    return noteChart.getNoteByDegreeAndKey(degree, transposeConfig.transp(chord.key), noteNamingConfig.preferredAccidental);
                 }
 
                 return noteChart.getNoteByDegree(degree, noteNamingConfig.preferredAccidental);
@@ -1538,8 +1563,7 @@
             let result = processNote(chord.root);
 
             if (chord.variant) {
-                if (key != undefined && noteNamingConfig.useNashvilleNotation &&
-                    isDigit(result.slice(-1)) && isDigit(chord.variant.slice(0, 1))) {
+                if (isDigit(result.slice(-1)) && isDigit(chord.variant.slice(0, 1))) {
                     result += 'ᕯ'
                 }
                 result += normalizeAccidentals(chord.variant);;
@@ -1562,24 +1586,27 @@
                         .join('')
         }
 
+        function transposeMetadata(metadata, transposeConfig, noteNamingConfig) {
+            metadata = replaceMetadataFragment(metadata, 'key', regexes.keyMetadata, (match, key) => {
+                const keyDegree = transposeConfig.transp(noteChart.getNoteDegree(key.keyName));
+                return getKeyName(keyDegree, noteNamingConfig) + (key.isMinor ? 'm' : '');
+            });
+
+            metadata = replaceMetadataFragment(metadata, 'capo', regexes.capoMetadata, (match, groups) => {
+                if (transposeConfig.capo == groups.capo) {
+                    return match;
+                }
+
+                return transposeConfig.capo ? transposeConfig.capo : "No capo";
+            });
+
+            return metadata;
+        }
+
         function spanifyHeaderLine(line, transposeConfig, noteNamingConfig) {
             return replaceAll(line.text, rgx([regexes.title, regexes.metadata]), (match, captureGroups) => {
                 if (captureGroups.metadata) {
-                    let metadata = replaceMetadataFragment(captureGroups.metadata, 'key', regexes.keyMetadata, (match, key) => {
-                        const keyDegree = transposeConfig.transp(noteChart.getNoteDegree(key.keyName));
-                        return getKeyName(keyDegree, noteNamingConfig) + (key.isMinor ? 'm' : '');
-
-                        return match;
-                    });
-
-                    metadata = replaceMetadataFragment(metadata, 'capo', regexes.capoMetadata, (match, groups) => {
-                        if (transposeConfig.capo == groups.capo) {
-                            return match;
-                        }
-
-                        return transposeConfig.capo ? transposeConfig.capo : "No capo";
-                    });
-
+                    const metadata = transposeMetadata(captureGroups.metadata, transposeConfig, noteNamingConfig);
                     return span(() => span('{', 'brace') +
                                       span(metadata, 'metadata') +
                                       span('}', 'brace'),
@@ -1593,56 +1620,48 @@
             });
         }
 
-        function spanifyChords(line, transposeConfig, noteNamingConfig) {
-            if (line.chords.length == 0) {
-                return encodeHtml(line.text);
+        function spanifyFragment(line, fragment, transposeConfig, noteNamingConfig) {
+            if (fragment.groups?.metadata) {
+                const metadata = transposeMetadata(fragment.groups?.metadata, transposeConfig, noteNamingConfig);
+                return span(() => span('{', 'brace') +
+                                  span(metadata, 'metadata') +
+                                  span('}', 'brace'),
+                            'inline-metadata');
             }
 
-            const chordOrMetadataRegex = rgx([regexes.metadata, rgx(regexes.chord, /(?<whitespace>\s*)/)]);
+            if (fragment.groups?.chord) {
+                const chord = processChord(fragment.groups, transposeConfig, noteNamingConfig);
 
-            return replaceAll(line.text, chordOrMetadataRegex, (match, captureGroups, offset) => {
-                if (captureGroups.metadata) {
-                    return span(() => span('{', 'brace') +
-                                      span(captureGroups.metadata, 'content') +
-                                      span('}', 'brace'),
-                                'inline-metadata');
-                }
-
-                const chord = processChord(captureGroups, line.key, transposeConfig, noteNamingConfig);
-
-                let whitespace = captureGroups.whitespace ?? '';
-                const lengthDiff = chord.length - captureGroups.chord.length;
+                let whitespace = fragment.groups.whitespace ?? '';
+                const lengthDiff = chord.length - fragment.groups.chord.length;
 
                 if (lengthDiff < 0) {
                     whitespace += ' '.repeat(-lengthDiff);
                 } else if (lengthDiff > 0 && whitespace.length >= 1) {
                     // if followed by a bar that's not the last character in the line
-                    const nextCharIndex = offset + match.length;
+                    const nextCharIndex = fragment.index + fragment.text.length;
                     const canRemoveAllWhitespace = line.text[nextCharIndex] == '|' &&
-                                                   nextCharIndex < line.text.length - 1;
+                                                    nextCharIndex < line.text.length - 1;
 
                     whitespace = whitespace.substring(canRemoveAllWhitespace
                                                         ? lengthDiff
                                                         : Math.min(lengthDiff, whitespace.length - 1));
                 }
 
-                return span(() => span(() => charSpans(captureGroups.prefix), 'chord-prefix') +
+                return span(() => span(() => charSpans(fragment.groups.prefix), 'chord-prefix') +
                                   span(() => charSpans(chord),
-                                       ['chord', line.key != undefined && noteNamingConfig.useNashvilleNotation && 'nashville']) +
-                                  span(() => charSpans(captureGroups.suffix), 'chord-suffix'),
-                            'chord-container') +
-                       whitespace;
-            }, encodeHtml).replaceAll('|', charSpans);
+                                       ['chord', fragment.groups.key != undefined && noteNamingConfig.useNashvilleNotation && 'nashville']) +
+                                  span(() => charSpans(fragment.groups.suffix), 'chord-suffix'),
+                            'chord-container') + whitespace;
+            }
+
+            return encodeHtml(fragment.text).replaceAll('|', charSpans);
         }
 
         function createLineHtmlElement(line, transposeConfig, noteNamingConfig) {
             if (line.is('whitespace')) {
                 const element = createElement('div', ['line', 'empty-line', line.nextLine?.is('header') && 'pre-header-line']);
                 element.innerHTML = "<br>"
-                return element;
-            } else if (line.is('header')) {
-                const element = createElement('div', ['line', 'header-line']);
-                element.innerHTML = spanifyHeaderLine(line, transposeConfig, noteNamingConfig);
                 return element;
             } else if (line.is('tablature')) {
                 const element = createElement('div', ['line',
@@ -1651,11 +1670,17 @@
                                                       line.nextLine?.is('tablature') && 'followed-by-tablature-line']);
                 element.innerHTML = charSpans(line.text);
                 return element;
+            } else if (line.is('header')) {
+                const element = createElement('div', ['line', 'header-line']);
+                element.innerHTML = spanifyHeaderLine(line, transposeConfig, noteNamingConfig);
+                return element;
             } else {
                 const element = createElement('div', ['line',
                                                       line.nextLine?.is('tablatureTiming') && 'followed-by-tablature-timing-line',
                                                       line.nextLine?.is('tablature') && 'pre-tablature-line']);
-                element.innerHTML = spanifyChords(line, transposeConfig, noteNamingConfig);
+                element.innerHTML = line.fragments && line.fragments.length
+                                        ? line.fragments.map(f => spanifyFragment(line, f, transposeConfig, noteNamingConfig)).join('')
+                                        : encodeHtml(line.text);
                 return element;
             }
         }
@@ -1705,7 +1730,7 @@
                 result.pop();
             }
 
-            let hasExplicitKey = false;
+            let currentKey = undefined;
             for (let i = 0; i < result.length; i++) {
                 result[i].nextLine = result[i + 1];
                 result[i].previousLine = result[i - 1];
@@ -1724,27 +1749,47 @@
                     return this.tags.includes(tag);
                 }
 
-                result[i].key = result[i - 1]?.key;
-                const key = extractMetadataFromLine(text, 'key', regexes.keyMetadata);
-                if (key) {
-                    const keyDegree = noteChart.getNoteDegree(key.keyName);
-                    result[i].key = key.isMinor ? relativeMajorOfMinorKey(keyDegree) : keyDegree;
-                    hasExplicitKey = true;
+                if (isHeaderLine(text)) {
+                    const key = extractMetadataFromLine(text, 'key', regexes.keyMetadata);
+                    if (key) {
+                        const keyDegree = noteChart.getNoteDegree(key.keyName);
+                        currentKey = key.isMinor ? relativeMajorOfMinorKey(keyDegree) : keyDegree;
+                    }
                 }
 
                 result[i].chords = [];
-                if (isChordLine(text) || isTextLine(text)) {
-                    const chords = matchAll(text, regexes.chord).map(m => m.groups);
-                    if (chords.length >= 2 || isChordLine(text)) {
-                        result[i].chords = chords;
+                result[i].fragments = [];
+
+                const shouldChordify = isChordLine(text) || (isTextLine(text) && matchAll(text, regexes.chord).length >= 2);
+                if (shouldChordify) {
+                    const chordOrMetadataRegex = rgx([regexes.metadata, rgx(regexes.chord)]);
+                    const fragments = fragmentize(text, chordOrMetadataRegex);
+
+                    for (fragment of fragments) {
+                        if (fragment.isMatch && fragment.groups?.metadata) {
+                            const key = extractMetadata(fragment.groups?.metadata, 'key', regexes.keyMetadata);
+                            if (key) {
+                                const keyDegree = noteChart.getNoteDegree(key.keyName);
+                                currentKey = key.isMinor ? relativeMajorOfMinorKey(keyDegree) : keyDegree;
+                            }
+                        } else if (fragment.isMatch && fragment.groups?.chord) {
+                            fragment.groups.key = currentKey;
+                            result[i].chords.push(fragment.groups);
+                        }
+
+                        result[i].fragments.push({text: fragment.text, index: fragment.index, groups: fragment.groups});
                     }
                 }
             }
 
-            if (!hasExplicitKey) {
+            if (currentKey == undefined) {
                 result.detectedKey = detectKey(result);
-                for (let i = 0; i < result.length; i++) {
-                    result[i].key = result.detectedKey;
+                for (const parsedLine of result) {
+                    for (const fragment of parsedLine.fragments) {
+                        if (fragment.groups?.chord) {
+                            fragment.groups.key = result.detectedKey;
+                        }
+                    }
                 }
             }
 
@@ -1803,7 +1848,7 @@
                 });
             }
 
-            keyMatches.sort((a, b) => b.score - a.score);
+            keyMatches.sort((a, b) => compare(b.score, a.score));
 
             console.log("Key detection performed",
                         keyMatches.length > 0
@@ -1818,15 +1863,26 @@
 
     <script id="domAndDataManipulationFunctions">
         function createNashvilleLegend(lines, transposeConfig, noteNamingConfig) {
-            const usedKeys = new Set(lines.map(line => line.key).filter(v => v != undefined));
+            const usedKeys = new Set(lines.flatMap(line => line.chords)
+                                          .map(chord => chord.key)
+                                          .filter(v => v != undefined));
 
             if (usedKeys.size == 0) {
                 return undefined;
             }
 
+            const usedChordDegrees = new Set(lines.flatMap(line => line.chords)
+                                                  .flatMap(chord => {
+                                                      const chordDegree = transp(noteChart.getNoteDegree(chord.root), -chord.key);
+                                                      return chord.bass
+                                                                 ? [chordDegree, transp(noteChart.getNoteDegree(chord.bass), -chord.key)]
+                                                                 : [chordDegree];
+                                                   }).sort(compare));
+
             let header = '<th></th>';
-            for(const chordDegreeInCMajor of [0, 2, 4, 5, 7, 9, 11]) {
-                header += `<th>${noteChart.getNumeral(chordDegreeInCMajor, 0)}</th>`;
+
+            for(const chordDegreeInCMajor of usedChordDegrees) {
+                header += `<th>${span(() => charSpans(noteChart.getNumeral(chordDegreeInCMajor, 0)), 'nashville-numeral')}</th>`;
             }
 
             let data = ''
@@ -1839,7 +1895,7 @@
                 data += '<tr>';
                 data += `<th class="key-name">${keyName} (${relativeMinorKeyName}m)</th>`;
 
-                for(const chordDegreeInCMajor of [0, 2, 4, 5, 7, 9, 11]) {
+                for(const chordDegreeInCMajor of usedChordDegrees) {
                     const chordDegree = transp(chordDegreeInCMajor, keyDegree);
 
                     const chordName = noteNamingConfig.useAccidentalsFromKey
@@ -2078,24 +2134,29 @@
             }
 
             switch(e.key.toLowerCase()) {
-                case 'h': { // Toggle controls visibility with 'h'
+                case 'h': { // Toggle controls visibility
                     fullscreen.enable(!fullscreen.isFullScreen());
                     break;
                 }
 
-                case 'f': { // Hide controls, if visible, and fit text to screen with 'f'
+                case 'f': { // Hide controls, if visible, and fit text to screen
                     data.fontSize.clearHashParam();
                     fullscreen.enable(true);
                     break;
                 }
 
-                case 'n': { // Decrease font size with 'n'
+                case 'n': { // Decrease font size
                     data.fontSize.decrease();
                     break;
                 }
 
-                case 'm': { // Increase font size with 'm'
+                case 'm': { // Increase font size
                     data.fontSize.increase();
+                    break;
+                }
+
+                case 'v': { // Toggle Nashville notation
+                    data.useNashvilleNotation.toggle();
                     break;
                 }
             }
