@@ -119,6 +119,12 @@
             color: #666;
         }
 
+        .detected-key {
+            margin-top: auto;
+            font-size: 13px;
+            font-style: italic;
+        }
+
         textarea {
             width: 100%;
             height: 100%;
@@ -566,6 +572,8 @@
                     </div>
                 </div>
             </div>
+
+            <div id="detectedKey" class="detected-key"></div>
 
             <div class="keyboard-shortcuts">
                 Keyboard shortcuts:
@@ -1351,6 +1359,10 @@
 
                 getNumeral(noteDegree, keyDegree) {
                     return notes['numeral'][transp(noteDegree, -keyDegree)];
+                },
+
+                getKeyName(keyDegree) {
+                    return preferredKeys[keyDegree];
                 }
             };
         })();
@@ -1639,9 +1651,9 @@
             }
 
             if (!hasExplicitKey) {
-                const detectedKey = detectKey(result);
+                result.detectedKey = detectKey(result);
                 for (let i = 0; i < result.length; i++) {
-                    result[i].key = detectedKey;
+                    result[i].key = result.detectedKey;
                 }
             }
 
@@ -1650,18 +1662,12 @@
 
         function detectKey(parsedLines) {
             function isChordInKey(keyDegree, chord) {
-                const chordsInKey = [];
-                chordsInKey[keyDegree] = 'major';
-                chordsInKey[transp(keyDegree, 2)] = 'minor';
-                chordsInKey[transp(keyDegree, 4)] = 'minor';
-                chordsInKey[transp(keyDegree, 5)] = 'major';
-                chordsInKey[transp(keyDegree, 7)] = 'major';
-                chordsInKey[transp(keyDegree, 9)] = 'minor';
-                chordsInKey[transp(keyDegree, 11)] = 'diminished';
+                const chordsInKey = ['major', null, 'minor', null, 'minor', 'major', null, 'major', null, 'minor', null, 'diminished'];
+                const relativeChordDegree = transp(chord.chordDegree, -keyDegree);
 
-                return chordsInKey[chord.chordDegree] &&
-                       (chordsInKey[chord.chordDegree] == chord.variant ||
-                        ((chord.variant == 'suspended' || chord.variant == 'power') && chordsInKey[chord.chordDegree] != 'diminished'));
+                return chordsInKey[relativeChordDegree] &&
+                       (chordsInKey[relativeChordDegree] == chord.variant ||
+                        ((chord.variant == 'suspended' || chord.variant == 'power') && chordsInKey[relativeChordDegree] != 'diminished'));
             }
 
             function chordScoreForKey(keyDegree, chord) {
@@ -1708,9 +1714,10 @@
 
             keyMatches.sort((a, b) => b.score - a.score);
 
-            console.log(keyMatches.length > 0
-                          ? keyMatches.map(m => noteChart.getNoteByDegreeAndKey(m.keyDegree, m.keyDegree) +
-                                                ` (Relative minor: ${noteChart.getNoteByDegreeAndKey(relativeMinorOfMajorKey(m.keyDegree), relativeMinorOfMajorKey(m.keyDegree))}m)` +
+            console.log("Key detection performed",
+                        keyMatches.length > 0
+                          ? keyMatches.map(m => noteChart.getKeyName(m.keyDegree) +
+                                                ` (Relative minor: ${noteChart.getKeyName(relativeMinorOfMajorKey(m.keyDegree))}m)` +
                                                 `, Score: ${m.score}`)
                           : "No key matches");
 
@@ -1818,6 +1825,14 @@
 
             applyClass(doc.content, data.colorfulChords.get(), 'colorful-chords');
             applyClass(doc.content, data.colorfulHeaders.get(), 'colorful-headers');
+
+            if (lines.detectedKey != undefined) {
+                const keyName = noteChart.getKeyName(transp(lines.detectedKey, effectiveTransposition));
+                const relativeMinorKeyName = noteChart.getKeyName(relativeMinorOfMajorKey(transp(lines.detectedKey, effectiveTransposition)));
+                doc.detectedKey.innerHTML = `Detected key: <strong>${keyName}</strong> (relative minor: <strong>${relativeMinorKeyName}m</strong>)`
+            } else {
+                doc.detectedKey.innerHTML = '';
+            }
 
             if (shouldRefit) {
                 fullscreen.withTemporaryFullscreen(() => {
