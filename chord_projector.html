@@ -1330,6 +1330,10 @@
             const musicalSymbols = '. … ‥ ․ ‾¯ ^⌃Δ▲ -⏜⏝◠◡⌒⌣ ⬭⬬ ◇⬦♢◆♦ ♩♪𝄐 𐒇⌇▬⬓⬒ ①②④⑧⑯❶❷❹❽⓰';
             const beatSymbols = '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ ₀₁₂₃₄₅₆₇₈₉₊₋₌ •▮ ▚ ▯ ◫⎅ ⋈⧓';
 
+            const parenthesizedContent = /\([^)]+\)/;
+            const bracedContent = /{[^}]+}/;
+            const fingering = /(\d|x){4,7}/;
+
             return {
                 chord: rgx([/^/, rgx.lookBehind(rgx.chars({whitespace: true}, '|()-╶}╴⏜⏝◠◡⌒⌣'))],
                            rgx.chars({name: "prefix", optional: true}, '⤺ᑉ~<>'),
@@ -1355,15 +1359,14 @@
                            rgx('whitespace', /\s*/),
                            [/$/, rgx.lookAhead(rgx.chars({whitespace: true}, '|()-╶{╴⏜⏝◠◡⌒⌣,:*'))]),
 
-                allowedWithChords: /\([^()]+\)|{[^{}]+}|[\s|%:*()\-[\]⏜⏝◠◡⌒⌣]/,
-                fingering: /(\d|x){4,7}/,
+                allowedWithChords: rgx([parenthesizedContent, bracedContent, fingering, rgx.chars({whitespace: true}, '|%:*()-[]⏜⏝◠◡⌒⌣')]),
                 tablature: rgx({flags: 'i'},
                                /^\s*/, noteNames, rgx.of('|'), rgx.chars({repeat: true}, '-─|()~0123456789hpx'), rgx.of('|'), /$/),
                 tablatureTiming: rgx({flags: 'u'}, /^\s*/, rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: true}, '|' + musicalSymbols), rgx.of('|'), /$/),
                 title: /\[(?<title>[^\]]+)\]/,
                 metadata: /{(?<metadata>[^}]+)}/,
-                keyMetadata: rgx(rgx("keyName", noteNames), /(?<isMinor>m)?/),
-                capoMetadata: /(?<capo>\d+)(?<capoSuffix>th|nd)?/
+                keyMetadataValue: rgx(rgx("keyName", noteNames), /(?<isMinor>m)?/),
+                capoMetadataValue: /(?<capo>\d+)(?<capoSuffix>th|nd)?/
             }
         })();
 
@@ -1478,10 +1481,11 @@
                 return false;
             }
 
-            const allowedWithChords = rgx({repeat: true, optional: true}, [regexes.allowedWithChords, regexes.fingering]);
             const nothingButChordsRegex = rgx(/^/,
-                                              allowedWithChords,
-                                              rgx({repeat: true}, regexes.chord, allowedWithChords),
+                                              rgx({repeat: true, optional: true}, regexes.allowedWithChords),
+                                              rgx({repeat: true},
+                                                  regexes.chord,
+                                                  rgx({repeat: true, optional: true}, regexes.allowedWithChords)),
                                               /$/);
             return testRegex(line, nothingButChordsRegex);
         }
@@ -1490,14 +1494,13 @@
             return !isWhitespace(line) && !isChordLine(line) && !isHeaderLine(line) && !isTablatureLine(line);
         }
 
-        function replaceMetadataFragment(metadata, metadataName, replacerOrMetadataValueRegex, replacer) {
-            const metadataValueRegex = (replacer ? replacerOrMetadataValueRegex : undefined) ?? /.+/;
-            if (!replacer) {
-                replacer = replacerOrMetadataValueRegex;
+        function replaceMetadataFragment(metadata, metadataName, metadataValueRegex, replacer) {
+            if (typeof metadataName === 'string' || metadataName instanceof String) {
+                metadataName = rgx.of(metadataName);
             }
 
             const fragmentRegex = rgx({flags: 'i'},
-                                      rgx.lookBehind(/^\s*/, rgx.of(metadataName), /(:|\s)\s*/),
+                                      rgx.lookBehind(/^\s*/, metadataName, /(:|\s)\s*/),
                                       rgx.lookAhead(/[^\s]/),
                                       metadataValueRegex,
                                       rgx.lookAhead(/\s*$/));
@@ -1531,7 +1534,6 @@
 
             const metadatas = matchAll(lineText, regexes.metadata).map(m => m.groups.metadata);
             for (const metadata of metadatas) {
-                const metadataFragments = metadata.split(',').map(s => s.trim());
                 const value = extractMetadata(metadata, metadataName, metadataValueRegex);
                 if (value) {
                     return value;
@@ -1586,13 +1588,13 @@
                         .join('')
         }
 
-        function transposeMetadata(metadata, transposeConfig, noteNamingConfig) {
-            metadata = replaceMetadataFragment(metadata, 'key', regexes.keyMetadata, (match, key) => {
+        function transposeMetadataKeyAndCapo(metadata, transposeConfig, noteNamingConfig) {
+            metadata = replaceMetadataFragment(metadata, /key|key change/, regexes.keyMetadataValue, (match, key) => {
                 const keyDegree = transposeConfig.transp(noteChart.getNoteDegree(key.keyName));
                 return getKeyName(keyDegree, noteNamingConfig) + (key.isMinor ? 'm' : '');
             });
 
-            metadata = replaceMetadataFragment(metadata, 'capo', regexes.capoMetadata, (match, groups) => {
+            metadata = replaceMetadataFragment(metadata, 'capo', regexes.capoMetadataValue, (match, groups) => {
                 if (transposeConfig.capo == groups.capo) {
                     return match;
                 }
@@ -1606,7 +1608,7 @@
         function spanifyHeaderLine(line, transposeConfig, noteNamingConfig) {
             return replaceAll(line.text, rgx([regexes.title, regexes.metadata]), (match, captureGroups) => {
                 if (captureGroups.metadata) {
-                    const metadata = transposeMetadata(captureGroups.metadata, transposeConfig, noteNamingConfig);
+                    const metadata = transposeMetadataKeyAndCapo(captureGroups.metadata, transposeConfig, noteNamingConfig);
                     return span(() => span('{', 'brace') +
                                       span(metadata, 'metadata') +
                                       span('}', 'brace'),
@@ -1622,7 +1624,7 @@
 
         function spanifyFragment(line, fragment, transposeConfig, noteNamingConfig) {
             if (fragment.groups?.metadata) {
-                const metadata = transposeMetadata(fragment.groups?.metadata, transposeConfig, noteNamingConfig);
+                const metadata = transposeMetadataKeyAndCapo(fragment.groups?.metadata, transposeConfig, noteNamingConfig);
                 return span(() => span('{', 'brace') +
                                   span(metadata, 'metadata') +
                                   span('}', 'brace'),
@@ -1689,7 +1691,7 @@
             const lines = text.split('\n');
 
             for (const line of lines) {
-                const capo = extractMetadataFromLine(line, 'capo', regexes.capoMetadata)?.capo;
+                const capo = extractMetadataFromLine(line, 'capo', regexes.capoMetadataValue)?.capo;
                 if (capo) {
                     return toFloat(capo) ?? 0;
                 }
@@ -1750,7 +1752,7 @@
                 }
 
                 if (isHeaderLine(text)) {
-                    const key = extractMetadataFromLine(text, 'key', regexes.keyMetadata);
+                    const key = extractMetadataFromLine(text, /key|key change/, regexes.keyMetadataValue);
                     if (key) {
                         const keyDegree = noteChart.getNoteDegree(key.keyName);
                         currentKey = key.isMinor ? relativeMajorOfMinorKey(keyDegree) : keyDegree;
@@ -1767,7 +1769,7 @@
 
                     for (fragment of fragments) {
                         if (fragment.isMatch && fragment.groups?.metadata) {
-                            const key = extractMetadata(fragment.groups?.metadata, 'key', regexes.keyMetadata);
+                            const key = extractMetadata(fragment.groups?.metadata, /key|key change/, regexes.keyMetadataValue);
                             if (key) {
                                 const keyDegree = noteChart.getNoteDegree(key.keyName);
                                 currentKey = key.isMinor ? relativeMajorOfMinorKey(keyDegree) : keyDegree;
@@ -2114,7 +2116,7 @@
             colorfulChords: bindData({el: doc.colorfulChords, hash: true, cookie: true}, () => redraw()),
             colorfulHeaders: bindData({el: doc.colorfulHeaders, hash: true, cookie: true}, () => redraw()),
             padding: bindData({el: doc.padding, hash: true, cookie: true}, () => redraw()),
-            useNashvilleNotation: bindData({el: doc.useNashvilleNotation, hash: true, cookie: true}, () => redraw()),
+            useNashvilleNotation: bindData({el: doc.useNashvilleNotation, hash: true, cookie: true}, () => redraw(true)),
             stylizeAccidentals: bindData({el: doc.stylizeAccidentals, hash: true, cookie: true}, () => redraw()),
             useAccidentalsFromKey: bindData({el: doc.useAccidentalsFromKey, hash: true, cookie: true}, () => redraw()),
             title: bindData({hash: 'title'}, value => document.title = value)
