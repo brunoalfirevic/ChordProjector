@@ -286,26 +286,26 @@
             border-radius: 5px;
         }
 
-        .line .inline-metadata {
+        .line:not(.header-line) .metadata-container {
             background-color: rgb(232, 232, 232);
             border-radius: 5px;
         }
 
-        .colorful-headers .line .inline-metadata .brace {
-            color: rgb(210, 250, 210);
-        }
-
-        .colorful-headers .line .inline-metadata {
+        .colorful-headers .line:not(.header-line) .metadata-container {
             margin-left: 0.2em;
             margin-right: 0.2em;
             background-color: rgb(210, 250, 210);
         }
 
-        .colorful-headers .line .inline-metadata .brace:first-child {
+        .colorful-headers .line:not(.header-line) .metadata-container .brace {
+            color: rgb(210, 250, 210);
+        }
+
+        .colorful-headers .line:not(.header-line) .metadata-container .brace:first-child {
             margin-right: -0.2em;
         }
 
-        .colorful-headers .line .inline-metadata .brace:last-child {
+        .colorful-headers .line:not(.header-line) .metadata-container .brace:last-child {
             margin-left: -0.2em;
         }
 
@@ -884,6 +884,16 @@
             }
 
             return `<span${isWhitespace(className) ? '' : ` class="${className}"`}>${shouldEncode ? encodeHtml(content) : content}</span>`;
+        }
+
+        function charSpans(content) {
+            if (!content) {
+                return '';
+            }
+
+            return Array.from(content)
+                        .map(c => `<span class="char" content="${encodeAttr(c)}">${encodeHtml(c)}</span>`)
+                        .join('')
         }
 
         function rgx(optionArg, ...args) {
@@ -1469,15 +1479,15 @@
         }
 
         function isTablatureTiming(line) {
-            return !isWhitespace(line) && testRegex(line, regexes.tablatureTiming);
+            return !isWhitespace(line) && !isHeaderLine(line) && testRegex(line, regexes.tablatureTiming);
         }
 
         function isTablatureLine(line) {
-            return !isWhitespace(line) && (testRegex(line, regexes.tablature) || isTablatureTiming(line));
+            return !isWhitespace(line) && !isHeaderLine(line) && (testRegex(line, regexes.tablature) || isTablatureTiming(line));
         }
 
         function isChordLine(line) {
-            if (isWhitespace(line) || isTablatureLine(line)) {
+            if (isWhitespace(line) || isTablatureLine(line) || isHeaderLine(line)) {
                 return false;
             }
 
@@ -1494,7 +1504,7 @@
             return !isWhitespace(line) && !isChordLine(line) && !isHeaderLine(line) && !isTablatureLine(line);
         }
 
-        function replaceMetadataFragment(metadata, metadataName, metadataValueRegex, replacer) {
+        function replaceMetadataFragments(text, metadataName, metadataValueRegex, replacer) {
             if (typeof metadataName === 'string' || metadataName instanceof String) {
                 metadataName = rgx.of(metadataName);
             }
@@ -1505,42 +1515,29 @@
                                       metadataValueRegex,
                                       rgx.lookAhead(/\s*$/));
 
-            const metadataFragments = metadata.split(',');
-            const replacements = [];
-            for (const metadataFragment of metadataFragments) {
-                replacements.push(replaceAll(metadataFragment,
-                                             fragmentRegex,
-                                             (match, groups) => replacer(match, groups)));
-            }
+            return replaceAll(text, regexes.metadata, (match, groups) => {
+                const replacements = [];
 
-            return replacements.join(',');
+                const metadataFragments = groups.metadata.split(',');
+                for (const metadataFragment of metadataFragments) {
+                    replacements.push(replaceAll(metadataFragment,
+                                                 fragmentRegex,
+                                                 (match, groups) => replacer(match, groups)));
+                }
+
+                return replacements.join(',');
+            });
         }
 
-        function extractMetadata(metadata, metadataName, metadataValueRegex) {
+        function extractMetadata(text, metadataName, metadataValueRegex) {
             let result = undefined;
 
-            replaceMetadataFragment(metadata, metadataName, metadataValueRegex, (value, groups) => {
+            replaceMetadataFragments(text, metadataName, metadataValueRegex, (value, groups) => {
                 result = groups ?? value;
                 return '';
             });
 
             return result;
-        }
-
-        function extractMetadataFromLine(lineText, metadataName, metadataValueRegex) {
-            if (!isHeaderLine(lineText)) {
-                return undefined;
-            }
-
-            const metadatas = matchAll(lineText, regexes.metadata).map(m => m.groups.metadata);
-            for (const metadata of metadatas) {
-                const value = extractMetadata(metadata, metadataName, metadataValueRegex);
-                if (value) {
-                    return value;
-                }
-            }
-
-            return undefined;
         }
 
         function processChord(chord, transposeConfig, noteNamingConfig) {
@@ -1578,57 +1575,41 @@
             return result;
         }
 
-        function charSpans(content) {
-            if (!content) {
-                return '';
+        function spanifyFragment(line, fragment, transposeConfig, noteNamingConfig) {
+            function stripBraces(str) {
+                if (str.slice(0, 1) == '{' && str.slice(-1) == '}') {
+                    return str.slice(1, -1);
+                }
+                return str;
             }
 
-            return Array.from(content)
-                        .map(c => `<span class="char" content="${encodeAttr(c)}">${encodeHtml(c)}</span>`)
-                        .join('')
-        }
-
-        function transposeMetadataKeyAndCapo(metadata, transposeConfig, noteNamingConfig) {
-            metadata = replaceMetadataFragment(metadata, /key|key change/, regexes.keyMetadataValue, (match, key) => {
-                const keyDegree = transposeConfig.transp(noteChart.getNoteDegree(key.keyName));
-                return getKeyName(keyDegree, noteNamingConfig) + (key.isMinor ? 'm' : '');
-            });
-
-            metadata = replaceMetadataFragment(metadata, 'capo', regexes.capoMetadataValue, (match, groups) => {
-                if (transposeConfig.capo == groups.capo) {
-                    return match;
-                }
-
-                return transposeConfig.capo ? transposeConfig.capo : "No capo";
-            });
-
-            return metadata;
-        }
-
-        function spanifyHeaderLine(line, transposeConfig, noteNamingConfig) {
-            return replaceAll(line.text, rgx([regexes.title, regexes.metadata]), (match, captureGroups) => {
-                if (captureGroups.metadata) {
-                    const metadata = transposeMetadataKeyAndCapo(captureGroups.metadata, transposeConfig, noteNamingConfig);
-                    return span(() => span('{', 'brace') +
-                                      span(metadata, 'metadata') +
-                                      span('}', 'brace'),
-                                'metadata-container');
-                } else {
-                    return span(() => span('{', 'bracket') +
-                                      span(captureGroups.title, 'title') +
-                                      span('}', 'bracket'),
-                                'title-container');
-                }
-            });
-        }
-
-        function spanifyFragment(line, fragment, transposeConfig, noteNamingConfig) {
             if (fragment.groups?.metadata) {
-                const metadata = transposeMetadataKeyAndCapo(fragment.groups?.metadata, transposeConfig, noteNamingConfig);
+                let metadata = replaceMetadataFragments(fragment.text, /key|key change/, regexes.keyMetadataValue, (match, key) => {
+                    const keyDegree = transposeConfig.transp(noteChart.getNoteDegree(key.keyName));
+                    return getKeyName(keyDegree, noteNamingConfig) + (key.isMinor ? 'm' : '');
+                });
+
+                metadata = metadata = replaceMetadataFragments(metadata, 'capo', regexes.capoMetadataValue, (match, groups) => {
+                    if (transposeConfig.capo == groups.capo) {
+                        return match;
+                    }
+
+                    return transposeConfig.capo ? transposeConfig.capo : "No capo";
+                });
+
+                metadata = stripBraces(metadata);
+
                 return span(() => span('{', 'brace') +
                                   span(metadata, 'metadata') +
                                   span('}', 'brace'),
-                            'inline-metadata');
+                            'metadata-container');
+            }
+
+            if (fragment.groups?.title) {
+                return span(() => span('[', 'bracket') +
+                                  span(fragment.groups.title, 'title') +
+                                  span(']', 'bracket'),
+                            'title-container');
             }
 
             if (fragment.groups?.chord) {
@@ -1643,7 +1624,7 @@
                     // if followed by a bar that's not the last character in the line
                     const nextCharIndex = fragment.index + fragment.text.length;
                     const canRemoveAllWhitespace = line.text[nextCharIndex] == '|' &&
-                                                    nextCharIndex < line.text.length - 1;
+                                                   nextCharIndex < line.text.length - 1;
 
                     whitespace = whitespace.substring(canRemoveAllWhitespace
                                                         ? lengthDiff
@@ -1672,12 +1653,9 @@
                                                       line.nextLine?.is('tablature') && 'followed-by-tablature-line']);
                 element.innerHTML = charSpans(line.text);
                 return element;
-            } else if (line.is('header')) {
-                const element = createElement('div', ['line', 'header-line']);
-                element.innerHTML = spanifyHeaderLine(line, transposeConfig, noteNamingConfig);
-                return element;
             } else {
                 const element = createElement('div', ['line',
+                                                      line.is('header') && 'header-line',
                                                       line.nextLine?.is('tablatureTiming') && 'followed-by-tablature-timing-line',
                                                       line.nextLine?.is('tablature') && 'pre-tablature-line']);
                 element.innerHTML = line.fragments && line.fragments.length
@@ -1691,9 +1669,11 @@
             const lines = text.split('\n');
 
             for (const line of lines) {
-                const capo = extractMetadataFromLine(line, 'capo', regexes.capoMetadataValue)?.capo;
-                if (capo) {
-                    return toFloat(capo) ?? 0;
+                if (isHeaderLine(line)) {
+                    const capo = extractMetadata(line, 'capo', regexes.capoMetadataValue)?.capo;
+                    if (capo) {
+                        return toFloat(capo) ?? 0;
+                    }
                 }
             }
 
@@ -1736,6 +1716,8 @@
             for (let i = 0; i < result.length; i++) {
                 result[i].nextLine = result[i + 1];
                 result[i].previousLine = result[i - 1];
+                result[i].fragments = [];
+                result[i].chords = [];
 
                 const text = result[i].text;
                 result[i].tags = [
@@ -1752,24 +1734,30 @@
                 }
 
                 if (isHeaderLine(text)) {
-                    const key = extractMetadataFromLine(text, /key|key change/, regexes.keyMetadataValue);
-                    if (key) {
-                        const keyDegree = noteChart.getNoteDegree(key.keyName);
-                        currentKey = key.isMinor ? relativeMajorOfMinorKey(keyDegree) : keyDegree;
+                    const titleOrMetadataRegex = rgx([regexes.title, regexes.metadata]);
+                    const fragments = fragmentize(text, titleOrMetadataRegex);
+
+                    for (const fragment of fragments) {
+                        if (fragment.isMatch && fragment.groups?.metadata) {
+                            const key = extractMetadata(fragment.text, /key|key change/, regexes.keyMetadataValue);
+                            if (key) {
+                                const keyDegree = noteChart.getNoteDegree(key.keyName);
+                                currentKey = key.isMinor ? relativeMajorOfMinorKey(keyDegree) : keyDegree;
+                            }
+                        }
+
+                        result[i].fragments.push({text: fragment.text, index: fragment.index, groups: fragment.groups});
                     }
                 }
-
-                result[i].chords = [];
-                result[i].fragments = [];
 
                 const shouldChordify = isChordLine(text) || (isTextLine(text) && matchAll(text, regexes.chord).length >= 2);
                 if (shouldChordify) {
                     const chordOrMetadataRegex = rgx([regexes.metadata, rgx(regexes.chord)]);
                     const fragments = fragmentize(text, chordOrMetadataRegex);
 
-                    for (fragment of fragments) {
+                    for (const fragment of fragments) {
                         if (fragment.isMatch && fragment.groups?.metadata) {
-                            const key = extractMetadata(fragment.groups?.metadata, /key|key change/, regexes.keyMetadataValue);
+                            const key = extractMetadata(fragment.text, /key|key change/, regexes.keyMetadataValue);
                             if (key) {
                                 const keyDegree = noteChart.getNoteDegree(key.keyName);
                                 currentKey = key.isMinor ? relativeMajorOfMinorKey(keyDegree) : keyDegree;
@@ -1879,7 +1867,7 @@
                                                       return chord.bass
                                                                  ? [chordDegree, transp(noteChart.getNoteDegree(chord.bass), -chord.key)]
                                                                  : [chordDegree];
-                                                   }).sort(compare));
+                                                  }).sort(compare));
 
             let header = '<th></th>';
 
