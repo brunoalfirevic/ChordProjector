@@ -1314,37 +1314,39 @@
             const bracedContent = /{[^}]+}/;
             const fingering = /(\d|x){4,7}/;
 
-            return {
-                chord: rgx([/^/, rgx.lookBehind(rgx.chars({whitespace: true}, '|()-╶}╴⏜⏝◠◡⌒⌣'))],
-                           rgx.chars({name: "prefix", optional: true}, '⤺ᑉ~<>'),
-                           rgx({name: "chordName"},
-                               [rgx.of('N.C.'),
-                                /%/,
-                                /X/,
-                                rgx(rgx("root", noteNames),
-                                    rgx({name: "variant", optional: true},
-                                        [/(maj7|M7|7)?(?<isSuspended>sus)(2|4)?/,
-                                         /(?<isDiminished>dim|°|ø)7?/, // ° is diminished, ø is half-diminished
-                                         /(?<isAugmented>aug)7?/,
-                                         /M/,
-                                         /(?<isPower>5)/,
-                                         rgx(/(?<isMinor>m|min)?/,
-                                             /(2|4|6|((maj|M)?(7|9|11|13)))?/,
-                                             rgx({optional: true},
-                                                 [/(?<hasFlatFifth>b5|♭5)/, /♯5|#5/, /(♯|#|b|♭)9/, /add(♯|#|b|♭)?(9|11|13)/]))
-                                        ]),
-                                    rgx({optional: true}, rgx.of('/'), rgx("bass", noteNames)))
-                               ]),
-                           rgx.chars({name: "suffix", optional: true, repeat: true}, beatSymbols + musicalSymbols),
-                           rgx('whitespace', /\s*/),
-                           [/$/, rgx.lookAhead(rgx.chars({whitespace: true}, '|()-╶{╴⏜⏝◠◡⌒⌣,:*'))]),
+            const chord = rgx([/^/, rgx.lookBehind(rgx.chars({whitespace: true}, '|()-╶}╴⏜⏝◠◡⌒⌣'))],
+                              rgx.chars({name: "prefix", optional: true}, '⤺ᑉ~<>'),
+                              rgx({name: "chordName"},
+                                  [rgx.of('N.C.'),
+                                  /%/,
+                                  /X/,
+                                  rgx(rgx("root", noteNames),
+                                      rgx({name: "variant", optional: true},
+                                          [/(maj7|M7|7)?(?<isSuspended>sus)(2|4)?/,
+                                           /(?<isDiminished>dim|°|ø)7?/, // ° is diminished, ø is half-diminished
+                                           /(?<isAugmented>aug)7?/,
+                                           /M/,
+                                           /(?<isPower>5)/,
+                                           rgx(/(?<isMinor>m|min)?/,
+                                               /(2|4|6|((maj|M)?(7|9|11|13)))?/,
+                                               rgx({optional: true},
+                                                   [/(?<hasFlatFifth>b5|♭5)/, /♯5|#5/, /(♯|#|b|♭)9/, /add(♯|#|b|♭)?(9|11|13)/]))
+                                          ]),
+                                      rgx({optional: true}, rgx.of('/'), rgx("bass", noteNames)))
+                                  ]),
+                              rgx.chars({name: "suffix", optional: true, repeat: true}, beatSymbols + musicalSymbols),
+                              rgx('whitespace', /\s*/),
+                              [/$/, rgx.lookAhead(rgx.chars({whitespace: true}, '|()-╶{╴⏜⏝◠◡⌒⌣,:*'))])
 
+            return {
+                chord,
                 allowedWithChords: rgx([parenthesizedContent, bracedContent, fingering, rgx.chars({whitespace: true}, '|%:*()-[]⏜⏝◠◡⌒⌣')]),
                 tablature: rgx({flags: 'i'},
                                /^\s*/, noteNames, rgx.of('|'), rgx.chars({repeat: true}, '-─|()~0123456789hpx'), rgx.of('|'), /$/),
                 tablatureTiming: rgx({flags: 'u'}, /^\s*/, rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: true}, '|' + musicalSymbols), rgx.of('|'), /$/),
                 title: /\[(?<title>[^\]]+)\]/,
                 metadata: /{(?<metadata>[^}]+)}/,
+                chordLegend: rgx(/^\s*/, chord, /(:|\s)\s*/, fingering, /\s*$/),
 
                 capoMetadataFragment: /(?<capoPrefix>Capo(:|\s)\s*)(?<capo>\d+)(?<capoSuffix>st|nd|rd|th)?/,
                 keyMetadataFragment: rgx(rgx('keyPrefix', /(Key|Key Change)(:|\s)\s*/),
@@ -1445,9 +1447,11 @@
 
         function processChord(chord, transposeConfig, noteNamingConfig) {
             function processNote(note) {
-                let degree = transposeConfig.transp(noteChart.getNoteDegree(note));
+                const degree = chord.isChordLegend
+                                   ? noteChart.getNoteDegree(note)
+                                   : transposeConfig.transp(noteChart.getNoteDegree(note));
 
-                if (chord.key != undefined && noteNamingConfig.useNashvilleNotation) {
+                if (chord.key != undefined && !chord.isChordLegend && noteNamingConfig.useNashvilleNotation) {
                     return noteChart.getNumeral(degree, transposeConfig.transp(chord.key));
                 }
 
@@ -1616,7 +1620,7 @@
 
             for (const line of parsedLines) {
                 for (const chord of line.chords) {
-                    if (!chord.root || chord.isAugmented) {
+                    if (!chord.root || chord.isAugmented || chord.isChordLegend) {
                         continue;
                     }
 
@@ -1676,6 +1680,10 @@
 
             function isTablatureLine(line) {
                 return !isWhitespace(line) && !isHeaderLine(line) && (testRegex(line, regexes.tablature) || isTablatureTiming(line));
+            }
+
+            function isChordLegendLine(line) {
+                return !isWhitespace(line) && testRegex(line, regexes.chordLegend);
             }
 
             function isChordLine(line) {
@@ -1798,6 +1806,7 @@
                     tags: [
                         isWhitespace(text) && 'whitespace',
                         isHeaderLine(text) && 'header',
+                        isChordLegendLine(text) && 'chordLegend',
                         isTablatureLine(text) && 'tablature',
                         isTablatureTiming(text) && 'tablatureTiming',
                         isChordLine(text) && 'chords',
@@ -1854,7 +1863,7 @@
                                 data: {...fragment.groups, subFragments}
                             });
                         } else if (fragment.isMatch && fragment.groups?.chordName) {
-                            const chord = {...fragment.groups, key: currentKey};
+                            const chord = {...fragment.groups, key: currentKey, isChordLegend: parsedLine.is('chordLegend')};
                             parsedLine.chords.push(chord);
                             parsedLine.fragments.push({
                                 type: 'chord',
@@ -1909,7 +1918,7 @@
     <script id="domAndDataManipulationFunctions">
         function createNashvilleLegend(lines, transposeConfig, noteNamingConfig) {
             const usedChords = lines.flatMap(line => line.chords)
-                                    .filter(chord => chord.key != undefined && chord.root);
+                                    .filter(chord => chord.key != undefined && chord.root && !chord.isChordLegend);
 
             const usedKeys = new Set(usedChords.map(chord => chord.key));
 
