@@ -933,12 +933,21 @@
             }
 
             function nameAndQuantify(options, regexStr) {
+                if (options.repeat?.count != undefined || options.repeat?.min != undefined || options.repeat?.max != undefined) {
+                    const exactQuantifier = options.repeat?.count != undefined
+                        ? `{${options.count}}`
+                        : `{${toString(options.repeat.min)},${toString(options.repeat.max)}}`;
+
+                    regexStr = `(${regexStr})${exactQuantifier}`;
+                    options = {...options, repeat: false};
+                }
+
                 const quantifier = options.repeat ? (options.optional ? '*' : '+')
                                                   : (options.optional ? '?' : '');
 
                 if (options.name && options.repeat) {
                     // we need to put the repeat quantifier inside the named capture group
-                    return `(?<${options.name}>(${regexStr})${quantifier})`
+                    return `(?<${options.name}>(${regexStr})${quantifier})`;
                 }
 
                 return options.name ? `(?<${options.name}>${regexStr})${quantifier}`
@@ -1310,8 +1319,8 @@
             const musicalSymbols = '. … ‥ ․ ‾¯ ^⌃Δ▲ -⏜⏝◠◡⌒⌣ ⬭⬬ ◇⬦♢◆♦ ♩♪𝄐 𐒇⌇▬⬓⬒ ①②④⑧⑯❶❷❹❽⓰';
             const beatSymbols = '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ ₀₁₂₃₄₅₆₇₈₉₊₋₌ •▮ ▚ ▯ ◫⎅ ⋈⧓';
 
-            const parenthesizedContent = /\([^)]+\)/;
-            const bracedContent = /{[^}]+}/;
+            const parenthesizedContent = /\([^\)]+\)/;
+            const bracedContent = /\{[^\}]+\}/;
             const fingering = /(\d|x){4,7}/;
 
             const chord = rgx([/^/, rgx.lookBehind(rgx.chars({whitespace: true}, '|()-╶}╴⏜⏝◠◡⌒⌣'))],
@@ -1342,10 +1351,17 @@
                 chord,
                 allowedWithChords: rgx([parenthesizedContent, bracedContent, fingering, rgx.chars({whitespace: true}, '|%:*()-[]⏜⏝◠◡⌒⌣')]),
                 tablature: rgx({flags: 'i'},
-                               /^\s*/, noteNames, rgx.of('|'), rgx.chars({repeat: true}, '-─|()~0123456789hpx'), rgx.of('|'), /$/),
-                tablatureTiming: rgx({flags: 'u'}, /^\s*/, rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: true}, '|' + musicalSymbols), rgx.of('|'), /$/),
+                               /^(?<pre>\s*)/,
+                               rgx('tablature',
+                                   noteNames, rgx.of('|'), rgx.chars({repeat: {min: 4}}, '-─|()~*0123456789hspx'), rgx.of('|')),
+                               /$|(?<post>\s.*)$/),
+                tablatureTiming: rgx({flags: 'u'},
+                                     /^(?<pre>\s*)/,
+                                     rgx('tablature',
+                                         rgx.chars('⧖⏲𝄞'), rgx.of('|'), rgx.chars({whitespace: true, repeat: {min: 4}}, '|' + musicalSymbols), rgx.of('|')),
+                                     /$|(?<post>\s.*)$/),
                 title: /\[(?<title>[^\]]+)\]/,
-                metadata: /{(?<metadata>[^}]+)}/,
+                metadata: /\{(?<metadata>[^\}]+)\}/,
                 chordLegend: rgx(/^\s*/, chord, /(:|\s)\s*/, fingering, /\s*$/),
 
                 capoMetadataFragment: /(?<capoPrefix>Capo(:|\s)\s*)(?<capo>\d+)(?<capoSuffix>st|nd|rd|th)?/,
@@ -1521,6 +1537,12 @@
                             'title-container');
             }
 
+            if (fragment.type == 'tablature') {
+                return span(fragment.data.pre, 'tablature-pre') +
+                       span(() => charSpans(fragment.data.tablature), 'tablature') +
+                       span(fragment.data.post, 'tablature-post');
+            }
+
             if (fragment.type == 'chord') {
                 const chord = processChord(fragment.data, transposeConfig, noteNamingConfig);
 
@@ -1555,19 +1577,15 @@
                 const element = createElement('div', ['line', 'empty-line', line.nextLine?.is('header') && 'pre-header-line']);
                 element.innerHTML = "<br>"
                 return element;
-            } else if (line.is('tablature')) {
-                const element = createElement('div', ['line',
-                                                      'tablature-line',
-                                                      line.is('tablatureTiming') && 'tablature-timing-line',
-                                                      line.nextLine?.is('tablature') && 'followed-by-tablature-line']);
-                element.innerHTML = charSpans(line.text);
-                return element;
             } else {
                 const element = createElement('div', ['line',
                                                       line.is('header') && 'header-line',
                                                       line.chords.length > 0 && 'has-any-chords',
+                                                      line.is('tablature') && 'tablature-line',
+                                                      line.is('tablatureTiming') && 'tablature-timing-line',
+                                                      line.is('tablature') && line.nextLine?.is('tablature') && 'followed-by-tablature-line',
                                                       line.nextLine?.is('tablatureTiming') && 'followed-by-tablature-timing-line',
-                                                      line.nextLine?.is('tablature') && 'pre-tablature-line']);
+                                                      !line.is('tablature') && line.nextLine?.is('tablature') && 'pre-tablature-line']);
                 element.innerHTML = line.fragments && line.fragments.length
                                         ? line.fragments.map(f => spanifyFragment(line, f, transposeConfig, noteNamingConfig)).join('')
                                         : encodeHtml(line.text);
@@ -1601,12 +1619,17 @@
             function goodFirstChordForKeyScoreBump(chordInfo, keyDegree) {
                 if (firstChordInfo.variant == "major" && keyDegree == firstChordInfo.chordDegree) {
                     return 5;
-                } else if (firstChordInfo.variant == 'minor' && keyDegree == relativeMajorOfMinorKey(firstChordInfo.chordDegree)) {
+                }
+
+                if (firstChordInfo.variant == 'minor' && keyDegree == relativeMajorOfMinorKey(firstChordInfo.chordDegree)) {
                     return 4;
-                } else if(firstChordInfo.variant == "suspended" || firstChordInfo.variant == "power") {
+                }
+
+                if(firstChordInfo.variant == "suspended" || firstChordInfo.variant == "power") {
                     if (keyDegree == firstChordInfo.chordDegree) {
                         return 4;
                     }
+
                     if (keyDegree == relativeMajorOfMinorKey(firstChordInfo.chordDegree)) {
                         return 2;
                     }
@@ -1848,6 +1871,14 @@
                             });
                         }
                     }
+                } else if (parsedLine.is('tablature')) {
+                    const matcGroups = matchFirst(text, parsedLine.is('tablatureTiming') ? regexes.tablatureTiming : regexes.tablature).groups;
+                    parsedLine.fragments.push({
+                        type: 'tablature',
+                        text: text,
+                        index: 0,
+                        data: {pre: matcGroups.pre, tablature: matcGroups.tablature, post: matcGroups.post}
+                    });
                 } else if (shouldChordify(parsedLine)) {
                     const chordOrMetadataRegex = rgx([regexes.metadata, regexes.chord]);
                     const fragments = fragmentize(text, chordOrMetadataRegex);
