@@ -226,6 +226,11 @@
             padding-right: .13em;
         }
 
+        .colorful-chords .line .chord.nashville .variant-separator,
+        .colorful-chords .line .chord.nashville .variant .char[content="⚡"] {
+            color: rgb(215, 0, 0);
+        }
+
         .colorful-chords .line .chord {
             color: rgb(0, 123, 255);
             background-color: rgb(240, 248, 255);
@@ -465,8 +470,8 @@
             .stylize-accidentals .line .metadata-key-name .char[content="b"],
             .stylize-accidentals .line .metadata-key-name .char[content="#"],
             .nashville-legend .nashville-numeral .char[content="b"],
-            .line .chord.nashville .char:first-child[content="b"],
-            .line .chord.nashville .char[content="/"] + .char[content="b"] {
+            .line .chord.nashville .chord-name .char[content="b"],
+            .line .chord.nashville .bass .char[content="b"] {
                 position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
 
                 &::after {
@@ -1316,7 +1321,7 @@
         const regexes = (function() {
             const noteNames = /(C|D|E|F|G|A|B|H)(♯|#|b|♭){0,2}/;
 
-            const musicalSymbols = '. … ‥ ․ ‾¯ ^⌃Δ▲ -⏜⏝◠◡⌒⌣ ⬭⬬ ◇⬦♢◆♦ ♩♪𝄐 𐒇⌇▬⬓⬒ ①②④⑧⑯❶❷❹❽⓰';
+            const musicalSymbols = '. … ‥ ․ ‾¯ ^⌃Δ▲⏶ -⏜⏝◠◡⌒⌣ ⬭⬬ ◇⬦♢◆♦ ♩♪𝄐 𐒇⌇▬⬓⬒ ①②④⑧⑯❶❷❹❽⓰';
             const beatSymbols = '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ ₀₁₂₃₄₅₆₇₈₉₊₋₌ •▮ ▚ ▯ ◫⎅ ⋈⧓';
 
             const parenthesizedContent = /\([^\)]+\)/;
@@ -1479,23 +1484,34 @@
             }
 
             if (!chord.root) {
-                return chord.chordName;
+                return {chordName: chord.chordName, key: chord.key};
             }
 
-            let result = processNote(chord.root);
+            const root = processNote(chord.root);
+            const bass = chord.bass ? processNote(chord.bass) : '';
+            const bassSeparator = bass ? '/' : '';
 
-            if (chord.variant) {
-                if (isDigit(result.slice(-1)) && isDigit(chord.variant.slice(0, 1))) {
-                    result += 'ᕯ'
+            let variant = chord.variant ? normalizeAccidentals(chord.variant) : '';
+            let variantSeparator = '';
+
+            if (isDigit(root.slice(-1))) {
+                if (variant == '5') {
+                    variant = '⚡';
+                } else if (isDigit(variant.slice(0, 1))) {
+                    // other variant separator candidates: ᔋ ᑉ ᕯ ↑ ⭡ ⬆ 🠉 ≺ ⦉ 〈 ⭍ ↯ ⚡ 🎸 🪫 🔌
+                    variantSeparator = '⭡';
                 }
-                result += normalizeAccidentals(chord.variant);;
             }
 
-            if (chord.bass) {
-                result += "/" + processNote(chord.bass);
-            }
-
-            return result;
+            return {
+                chordName: root + variantSeparator + variant + bassSeparator + bass,
+                root,
+                variant,
+                variantSeparator,
+                bass,
+                bassSeparator,
+                key: chord.key
+            };
         }
 
         function spanifyFragment(line, fragment, transposeConfig, noteNamingConfig) {
@@ -1547,12 +1563,12 @@
                 const chord = processChord(fragment.data, transposeConfig, noteNamingConfig);
 
                 let whitespace = fragment.data.whitespace ?? '';
-                const lengthDiff = chord.length - fragment.data.chordName.length;
+                const lengthDiff = chord.chordName.length - fragment.data.chordName.length;
 
                 if (lengthDiff < 0) {
                     whitespace += ' '.repeat(-lengthDiff);
                 } else if (lengthDiff > 0 && whitespace.length >= 1) {
-                    // if followed by a bar that's not the last character in the line
+                    // can remove all whitespace if followed by a bar that's not the last character in the line
                     const nextCharIndex = fragment.index + fragment.text.length;
                     const canRemoveAllWhitespace = line.text[nextCharIndex] == '|' &&
                                                    nextCharIndex < line.text.length - 1;
@@ -1563,8 +1579,12 @@
                 }
 
                 return span(() => span(() => charSpans(fragment.data.prefix), 'chord-prefix') +
-                                  span(() => charSpans(chord),
-                                       ['chord', fragment.data.key != undefined && noteNamingConfig.useNashvilleNotation && 'nashville']) +
+                                  span(() => span(() => charSpans(chord.root ?? chord.chordName), 'chord-name') +
+                                             span(() => charSpans(chord.variantSeparator), 'variant-separator') +
+                                             span(() => charSpans(chord.variant), 'variant') +
+                                             span(() => charSpans(chord.bassSeparator), 'bass-separator') +
+                                             span(() => charSpans(chord.bass), 'bass'),
+                                       ['chord', chord.key != undefined && noteNamingConfig.useNashvilleNotation && 'nashville']) +
                                   span(() => charSpans(fragment.data.suffix), 'chord-suffix'),
                             'chord-container') + whitespace;
             }
