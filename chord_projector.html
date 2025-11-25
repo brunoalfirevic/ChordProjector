@@ -267,11 +267,11 @@
             line-height: 1;
         }
 
-        .line.empty-line.pre-header-line + .line.header-line {
+        .line.empty-line + .line.header-line {
             margin-top: -0.3em;
         }
 
-        .line.header-line + .line.empty-line.pre-header-line {
+        .line.header-line + .line.empty-line.followed-by-header-line {
             margin-top: -0.5em;
         }
 
@@ -384,8 +384,8 @@
 
         /* Even tighter line spacing for tablature*/
         .tablature-line:not(.tablature-timing-line) { line-height: 1 !important;}
-        .pre-tablature-line:not(.followed-by-tablature-timing-line) { line-height: 1.15 !important; }
-        .pre-tablature-line + .tablature-timing-line { line-height: 1.15 !important; }
+        .line.followed-by-tablature-line:not(.tablature-line):not(.empty-line):not(.followed-by-tablature-timing-line) { line-height: 1.15 !important; } */
+        .line.followed-by-tablature-line:not(.tablature-line):not(.empty-line) + .tablature-timing-line { line-height: 1.15 !important; }
 
         .tablature-line .char {
             display: inline-block;
@@ -422,7 +422,7 @@
             }
 
             .tablature-line + .tablature-line.followed-by-tablature-line,
-            .pre-tablature-line.has-any-chords + .tablature-line.followed-by-tablature-line {
+            .line.followed-by-tablature-line:not(.tablature-line).has-any-chords + .tablature-line.followed-by-tablature-line {
                 .char[content="|"]::after { content: '┼'; }
                 .char[content="|"]:nth-child(2)::after { content: '├'; }
                 .char[content="|"]:last-child::after { content: '┤'; }
@@ -436,17 +436,17 @@
                 margin-top: -0.3em;
             }
 
-            .pre-tablature-line + .tablature-timing-line .char[content="|"]::after {
+            .line.followed-by-tablature-line:not(.tablature-line).has-any-chords + .tablature-timing-line .char[content="|"]::after {
                 margin-top: -0.2em;
             }
 
-            .pre-tablature-line .char[content="|"] {
+            .line.followed-by-tablature-line:not(.tablature-line) .char[content="|"] {
                 color: transparent;
             }
 
             /* Specific character styling */
 
-            .line:not(.pre-tablature-line):not(.tablature-line) .char[content="|"] {
+            .line:not(.tablature-line):not(.followed-by-tablature-line) .char[content="|"] {
                 display: inline-block;
                 transform: translateY(-1px) scaleY(1.2);
                 font-weight: 700;
@@ -1573,24 +1573,26 @@
         }
 
         function createLineHtmlElement(line, transposeConfig, noteNamingConfig) {
+            const element = createElement('div', ['line',
+                                                  line.chords.length > 0 && 'has-any-chords',
+                                                  line.is('whitespace') && 'empty-line',
+                                                  line.is('header') && 'header-line',
+                                                  line.is('tablature') && 'tablature-line',
+                                                  line.is('tablatureTiming') && 'tablature-timing-line',
+                                                  line.nextLine?.is('tablature') && 'followed-by-tablature-line',
+                                                  line.nextLine?.is('header') && 'followed-by-header-line',
+                                                  line.nextLine?.is('tablatureTiming') && 'followed-by-tablature-timing-line']);
+
             if (line.is('whitespace')) {
-                const element = createElement('div', ['line', 'empty-line', line.nextLine?.is('header') && 'pre-header-line']);
                 element.innerHTML = "<br>"
-                return element;
             } else {
-                const element = createElement('div', ['line',
-                                                      line.is('header') && 'header-line',
-                                                      line.chords.length > 0 && 'has-any-chords',
-                                                      line.is('tablature') && 'tablature-line',
-                                                      line.is('tablatureTiming') && 'tablature-timing-line',
-                                                      line.is('tablature') && line.nextLine?.is('tablature') && 'followed-by-tablature-line',
-                                                      line.nextLine?.is('tablatureTiming') && 'followed-by-tablature-timing-line',
-                                                      !line.is('tablature') && line.nextLine?.is('tablature') && 'pre-tablature-line']);
                 element.innerHTML = line.fragments && line.fragments.length
                                         ? line.fragments.map(f => spanifyFragment(line, f, transposeConfig, noteNamingConfig)).join('')
                                         : encodeHtml(line.text);
-                return element;
+
             }
+
+            return element;
         }
 
         function detectKey(parsedLines) {
