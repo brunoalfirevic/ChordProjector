@@ -1609,7 +1609,6 @@
                 element.innerHTML = line.fragments && line.fragments.length
                                         ? line.fragments.map(f => spanifyFragment(line, f, transposeConfig, noteNamingConfig)).join('')
                                         : encodeHtml(line.text);
-
             }
 
             return element;
@@ -1797,7 +1796,7 @@
                                                rgx.lookAhead(/\s*(,|$)/));
 
                 const subFragments = [];
-                var metadataParts = fragmentize(metadataText, fragmentPartsRegex);
+                const metadataParts = fragmentize(metadataText, fragmentPartsRegex);
 
                 for (const part of metadataParts) {
                     if (part.isMatch && part.groups.keyName) {
@@ -1908,7 +1907,7 @@
                     for (const fragment of fragments) {
                         if (fragment.isMatch && fragment.groups?.metadata) {
                             const subFragments = createMetadataSubFragments(fragment.groups.metadata, key => currentKey = key);
-                            parsedLine.metadataEntries = subFragments.filter(sf => sf.type !== 'text');
+                            parsedLine.metadataEntries = subFragments.filter(sf => sf.type !== 'metadata.text');
                             parsedLine.fragments.push({
                                 type: 'metadata',
                                 text: fragment.text,
