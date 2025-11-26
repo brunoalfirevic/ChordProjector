@@ -400,53 +400,55 @@
         .polished {
             /* Pretty tablatures */
 
-            .tablature-line .char[content="-"],
-            .tablature-line .char[content="|"] {
-                position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
+            .pretty-tablatures {
+                .tablature-line .char[content="-"],
+                .tablature-line .char[content="|"] {
+                    position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
 
-                &::after {
-                    position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
+                    &::after {
+                        position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
 
-                    font-weight: 300;
-                    color: gray;
+                        font-weight: 300;
+                        color: gray;
+                    }
+
+                    &[content="-"]::after { content: '─'; }
                 }
 
-                &[content="-"]::after { content: '─'; }
-            }
+                .tablature-line.followed-by-tablature-line {
+                    .char[content="|"]::after { content: '┬'; }
+                    .char[content="|"]:nth-child(2)::after { content: '┌'; }
+                    .char[content="|"]:last-child::after { content: '┐'; }
+                }
 
-            .tablature-line.followed-by-tablature-line {
-                .char[content="|"]::after { content: '┬'; }
-                .char[content="|"]:nth-child(2)::after { content: '┌'; }
-                .char[content="|"]:last-child::after { content: '┐'; }
-            }
+                .tablature-line:not(.followed-by-tablature-line) {
+                    .char[content="|"]::after { content: '┴'; }
+                    .char[content="|"]:nth-child(2)::after { content: '└'; }
+                    .char[content="|"]:last-child::after { content: '┘'; }
+                }
 
-            .tablature-line:not(.followed-by-tablature-line) {
-                .char[content="|"]::after { content: '┴'; }
-                .char[content="|"]:nth-child(2)::after { content: '└'; }
-                .char[content="|"]:last-child::after { content: '┘'; }
-            }
+                .tablature-line + .tablature-line.followed-by-tablature-line,
+                .line.followed-by-tablature-line:not(.tablature-line).has-any-chords + .tablature-line.followed-by-tablature-line {
+                    .char[content="|"]::after { content: '┼'; }
+                    .char[content="|"]:nth-child(2)::after { content: '├'; }
+                    .char[content="|"]:last-child::after { content: '┤'; }
+                }
 
-            .tablature-line + .tablature-line.followed-by-tablature-line,
-            .line.followed-by-tablature-line:not(.tablature-line).has-any-chords + .tablature-line.followed-by-tablature-line {
-                .char[content="|"]::after { content: '┼'; }
-                .char[content="|"]:nth-child(2)::after { content: '├'; }
-                .char[content="|"]:last-child::after { content: '┤'; }
-            }
+                .tablature-timing-line .char[content="|"]::after {
+                    content: '│' !important;
+                }
 
-            .tablature-timing-line .char[content="|"]::after {
-                content: '│' !important;
-            }
+                .tablature-timing-line:not(.followed-by-tablature-line) .char[content="|"]::after {
+                    margin-top: -0.3em;
+                }
 
-            .tablature-timing-line:not(.followed-by-tablature-line) .char[content="|"]::after {
-                margin-top: -0.3em;
-            }
+                .line.followed-by-tablature-line:not(.tablature-line).has-any-chords + .tablature-timing-line .char[content="|"]::after {
+                    margin-top: -0.2em;
+                }
 
-            .line.followed-by-tablature-line:not(.tablature-line).has-any-chords + .tablature-timing-line .char[content="|"]::after {
-                margin-top: -0.2em;
-            }
-
-            .line.followed-by-tablature-line:not(.tablature-line) .char[content="|"] {
-                color: transparent;
+                .line.followed-by-tablature-line:not(.tablature-line) .char[content="|"] {
+                    color: transparent;
+                }
             }
 
             /* Specific character styling */
@@ -583,13 +585,13 @@
                     </div>
 
                     <div class="flex-row">
-                        <label for="stylizeAccidentals">Stylize accidentals:</label>
-                        <input type="checkbox" id="stylizeAccidentals" value="true">
+                        <label for="colorfulChords">Colorful chords:</label>
+                        <input type="checkbox" id="colorfulChords" value="true" checked>
                     </div>
 
                     <div class="flex-row">
-                        <label for="colorfulChords">Colorful chords:</label>
-                        <input type="checkbox" id="colorfulChords" value="true" checked>
+                        <label for="stylizeAccidentals">Stylize accidentals:</label>
+                        <input type="checkbox" id="stylizeAccidentals" value="true">
                     </div>
                 </div>
 
@@ -605,13 +607,13 @@
                     </div>
 
                     <div class="flex-row">
-                        <label for="useNashvilleNotation">Nashville notation:</label>
-                        <input type="checkbox" id="useNashvilleNotation" value="true">
+                        <label for="colorfulHeaders">Colorful headers:</label>
+                        <input type="checkbox" id="colorfulHeaders" value="true" checked>
                     </div>
 
                     <div class="flex-row">
-                        <label for="colorfulHeaders">Colorful headers:</label>
-                        <input type="checkbox" id="colorfulHeaders" value="true" checked>
+                        <label for="useNashvilleNotation">Nashville notation:</label>
+                        <input type="checkbox" id="useNashvilleNotation" value="true">
                     </div>
                 </div>
 
@@ -628,6 +630,11 @@
                     <div class="flex-row">
                         <label for="capoAsWritten">Written with capo:</label>
                         <input type="number" id="capoAsWritten" min="0" max="12" value="0">
+                    </div>
+
+                    <div class="flex-row">
+                        <label for="prettyTablatures">Pretty tablatures:</label>
+                        <input type="checkbox" id="prettyTablatures" value="true" checked>
                     </div>
 
                     <div class="flex-row">
@@ -2137,6 +2144,7 @@
             applyClass(doc.content, data.colorfulChords.get(), 'colorful-chords');
             applyClass(doc.content, data.colorfulHeaders.get(), 'colorful-headers');
             applyClass(doc.content, data.stylizeAccidentals.get(), 'stylize-accidentals');
+            applyClass(doc.content, data.prettyTablatures.get(), 'pretty-tablatures');
 
             if (lines.detectedKey != undefined) {
                 const keyName = getKeyName(transposeConfig.transp(lines.detectedKey), noteNamingConfig);
@@ -2222,6 +2230,7 @@
             useNashvilleNotation: bindData({el: doc.useNashvilleNotation, hash: true, cookie: true}, () => redraw(true)),
             stylizeAccidentals: bindData({el: doc.stylizeAccidentals, hash: true, cookie: true}, () => redraw()),
             useAccidentalsFromKey: bindData({el: doc.useAccidentalsFromKey, hash: true, cookie: true}, () => redraw()),
+            prettyTablatures: bindData({el: doc.prettyTablatures, hash: true, cookie: true}, () => redraw()),
             title: bindData({hash: 'title'}, value => document.title = value),
 
             getParsedLines: (function() {
