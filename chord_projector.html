@@ -1323,17 +1323,26 @@
     </script>
 
     <script id="domainFunctions">
+        function mod(value, modValue) {
+            if (value == undefined) {
+                return undefined;
+            }
+
+            value %= modValue;
+            if (value < 0) {
+                value += modValue;
+            }
+
+            return value;
+
+        }
+
         function transp(degree, transpose) {
             if (degree == undefined) {
                 return undefined;
             }
 
-            degree += transpose;
-            degree %= 12;
-            if (degree < 0) {
-                degree += 12;
-            }
-            return degree;
+            return mod(degree + transpose, 12);
         }
 
         function parallelMinorOfMajorKey(keyDegree) {
@@ -1387,8 +1396,8 @@
                                       rgx({optional: true}, rgx.of('/'), rgx("bass", noteNames)))
                                   ]),
                               rgx.chars({name: "suffix", optional: true, repeat: true}, beatSymbols + musicalSymbols),
-                              rgx('whitespace', /\s*/),
-                              [/$/, rgx.lookAhead(rgx.chars({whitespace: true}, '|()-╶{╴⏜⏝◠◡⌒⌣,:*'))])
+                              [/$/, rgx.lookAhead(rgx.chars({whitespace: true}, '|()-╶{╴⏜⏝◠◡⌒⌣,:*'))],
+                              rgx('whitespace', /\s*/))
 
             return {
                 chord,
@@ -1786,7 +1795,7 @@
                                                 (`, Initial chord score bump: ${m.initialChordScoreBump}`))
                           : "No key matches");
 
-            return keyMatches[0] ? {keyDegree: keyMatches[0].keyDegree} : undefined;
+            return keyMatches[0] ? {keyDegree: keyMatches[0].keyDegree, isDetected: true} : undefined;
         }
 
         function parseLines(text) {
