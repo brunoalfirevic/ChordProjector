@@ -121,6 +121,7 @@
 
         .detected-key {
             margin-top: auto;
+            margin-bottom: 5px;
             font-size: 13px;
             font-style: italic;
         }
@@ -214,7 +215,8 @@
             text-overflow: clip; /* Clips text that doesn't fit */
         }
 
-        .line .chord {
+        .line .chord,
+        .line.nashville-legend .note {
             position: relative;
             z-index: -1; /* to make character around chords appear above the highlighted background */
             font-weight: 700;
@@ -231,7 +233,8 @@
             color: rgb(215, 0, 0);
         }
 
-        .colorful-chords .line .chord {
+        .colorful-chords .line .chord,
+        .colorful-chords .line.nashville-legend .note {
             color: rgb(0, 123, 255);
             background-color: rgb(240, 248, 255);
         }
@@ -240,7 +243,7 @@
             padding-bottom: 0.6em;
         }
 
-        .line.nashville-legend .chord {
+        .line.nashville-legend .note {
             background-color: initial !important;
         }
 
@@ -469,6 +472,8 @@
             .stylize-accidentals .line .chord .char[content="#"],
             .stylize-accidentals .line.nashville-legend .key-name .char[content="b"],
             .stylize-accidentals .line.nashville-legend .key-name .char[content="#"],
+            .stylize-accidentals .line.nashville-legend .note .char[content="b"],
+            .stylize-accidentals .line.nashville-legend .note .char[content="#"],
             .stylize-accidentals .line .metadata-key-name .char[content="b"],
             .stylize-accidentals .line .metadata-key-name .char[content="#"],
             .nashville-legend .nashville-numeral .char[content="b"],
@@ -496,7 +501,8 @@
             }
 
             /* Restore the text color that was set to 'initial' in the stylized accidentals replacement CSS block */
-            .colorful-chords .line .chord .char::after {
+            .colorful-chords .line .chord .char::after,
+            .colorful-chords .line.nashville-legend .note .char::after {
                 color: rgb(0, 123, 255) !important;
             }
 
@@ -656,7 +662,8 @@
                 <strong>h</strong> - toggle controls,
                 <strong>n</strong> - decrease font,
                 <strong>m</strong> - increase font,
-                <strong>f</strong> - fit text
+                <strong>f</strong> - fit text,
+                <strong>v</strong> - use Nashville notation
             </div>
         </div>
     </div>
@@ -1377,7 +1384,7 @@
                 chordLegend: rgx(/^\s*/, chord, /(:|\s)\s*/, fingering, /\s*$/),
 
                 capoMetadataFragment: /(?<capoPrefix>Capo(:|\s)\s*)(?<capo>\d+)(?<capoSuffix>st|nd|rd|th)?/,
-                keyMetadataFragment: rgx(rgx('keyPrefix', /(Key|Key Change)(:|\s)\s*/),
+                keyMetadataFragment: rgx(rgx('keyPrefix', /(Key|Key Change|Back to key)(:|\s)\s*/),
                                          rgx("keyName", noteNames),
                                          /(?<isMinor>m)?/)
             }
@@ -1391,13 +1398,12 @@
                        '#';
             }
 
-            const preferredKeys = ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'];
-
             const notes = {
-                '#':       ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
-                'b':       ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
-                'auto':    ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'],
-                'numeral': ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
+                '#':        ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
+                'b':        ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
+                'auto':     ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'],
+                'keyNames': ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'],
+                'numeral':  ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
             };
 
             const wholeNoteDegrees = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11, 'H': 11};
@@ -1447,7 +1453,7 @@
                 },
 
                 getNoteByDegreeAndKey(noteDegree, keyDegree, preferredAccidental) {
-                    const keyName = preferredKeys[keyDegree];
+                    const keyName = notes.keyNames[keyDegree];
                     let result = notesByKey[keyName][transp(noteDegree, -keyDegree)];
 
                     if (!result) {
@@ -1458,36 +1464,57 @@
                 },
 
                 getNumeral(noteDegree, keyDegree) {
-                    return notes['numeral'][transp(noteDegree, -keyDegree)];
+                    return notes.numeral[transp(noteDegree, -keyDegree)];
                 },
 
                 getKeyName(keyDegree) {
-                    return preferredKeys[keyDegree];
+                    return notes.keyNames[keyDegree];
                 }
             };
         })();
 
-        function getKeyName(keyDegree, noteNamingConfig) {
-            return noteNamingConfig.useAccidentalsFromKey
-                    ? noteChart.getKeyName(keyDegree)
-                    : noteChart.getNoteByDegree(keyDegree, noteNamingConfig.preferredAccidental);
-        }
+        const noteRenderer = (function() {
+            return {
+                getNoteName: function(note, key, transposeConfig, noteNamingConfig) {
+                    const transpose = transposeConfig?.effectiveTransposition() ?? 0;
+                    const noteDegree = transp(note.noteDegree, transpose);
+
+                    if (key && noteNamingConfig.useAccidentalsFromKey) {
+                        const keyDegree = transp(key.keyDegree, transpose);
+                        return noteChart.getNoteByDegreeAndKey(noteDegree, keyDegree, noteNamingConfig.preferredAccidental);
+                    }
+
+                    return noteChart.getNoteByDegree(noteDegree, noteNamingConfig.preferredAccidental);
+                },
+
+                getKeyName: function(key, transposeConfig, noteNamingConfig) {
+                    const transpose = transposeConfig?.effectiveTransposition() ?? 0;
+                    const keyDegree = transp(key.keyDegree, transpose);
+
+                    return noteNamingConfig.useAccidentalsFromKey
+                                ? noteChart.getKeyName(keyDegree)
+                                : noteChart.getNoteByDegree(keyDegree, noteNamingConfig.preferredAccidental);
+                },
+
+                getRelativeMinorKeyName: function(key, transposeConfig, noteNamingConfig) {
+                    const transpose = transposeConfig?.effectiveTransposition() ?? 0;
+                    const keyDegree = transp(key.keyDegree, transpose);
+                    const keyName = noteNamingConfig.useAccidentalsFromKey
+                                        ? noteChart.getNoteByDegreeAndKey(relativeMinorOfMajorKey(keyDegree), keyDegree, noteNamingConfig.preferredAccidental)
+                                        : noteChart.getNoteByDegree(relativeMinorOfMajorKey(keyDegree), noteNamingConfig.preferredAccidental);
+                    return keyName + 'm';
+                }
+            };
+        })();
 
         function processChord(chord, transposeConfig, noteNamingConfig) {
-            function processNote(note) {
-                const degree = chord.isChordLegend
-                                   ? noteChart.getNoteDegree(note)
-                                   : transposeConfig.transp(noteChart.getNoteDegree(note));
-
-                if (chord.key != undefined && !chord.isChordLegend && noteNamingConfig.useNashvilleNotation) {
-                    return noteChart.getNumeral(degree, transposeConfig.transp(chord.key));
+            function processNote(noteName) {
+                const noteDegree = noteChart.getNoteDegree(noteName);
+                if (chord.key && !chord.isChordLegend && noteNamingConfig.useNashvilleNotation) {
+                    return noteChart.getNumeral(noteDegree, chord.key.keyDegree);
                 }
 
-                if (chord.key != undefined && noteNamingConfig.useAccidentalsFromKey) {
-                    return noteChart.getNoteByDegreeAndKey(degree, transposeConfig.transp(chord.key), noteNamingConfig.preferredAccidental);
-                }
-
-                return noteChart.getNoteByDegree(degree, noteNamingConfig.preferredAccidental);
+                return noteRenderer.getNoteName({noteDegree, noteName}, chord.key, chord.isChordLegend ? undefined : transposeConfig, noteNamingConfig);
             }
 
             if (!chord.root) {
@@ -1524,14 +1551,12 @@
         function spanifyFragment(line, fragment, transposeConfig, noteNamingConfig) {
             function spanifyMetadataSubFragment(subFragment) {
                 if (subFragment.type === 'metadata.key') {
-                    let keyDegree = transposeConfig.transp(subFragment.data.keyDegree);
-                    if (subFragment.data.isMinor) {
-                        keyDegree = relativeMinorOfMajorKey(keyDegree);
-                    }
-                    const keyName = getKeyName(keyDegree, noteNamingConfig);
+                    const keyName = subFragment.data.isMinor
+                                        ? noteRenderer.getRelativeMinorKeyName(subFragment.data, transposeConfig, noteNamingConfig)
+                                        : noteRenderer.getKeyName(subFragment.data, transposeConfig, noteNamingConfig)
+
                     return subFragment.data.keyPrefix +
-                           span(() => charSpans(keyName), 'metadata-key-name') +
-                           (subFragment.data.isMinor ? 'm' : '');
+                           span(() => charSpans(keyName), 'metadata-key-name');
                 }
 
                 if (subFragment.type === 'metadata.capo') {
@@ -1591,7 +1616,7 @@
                                              span(() => charSpans(chord.variant), 'variant') +
                                              span(() => charSpans(chord.bassSeparator), 'bass-separator') +
                                              span(() => charSpans(chord.bass), 'bass'),
-                                       ['chord', chord.key != undefined && noteNamingConfig.useNashvilleNotation && 'nashville']) +
+                                       ['chord', chord.key && noteNamingConfig.useNashvilleNotation && 'nashville']) +
                                   span(() => charSpans(fragment.data.suffix), 'chord-suffix'),
                             'chord-container') + whitespace;
             }
@@ -1706,14 +1731,14 @@
 
             console.log("Key detection performed",
                         keyMatches.length > 0
-                          ? keyMatches.map(m => noteChart.getKeyName(m.keyDegree) +
-                                                ` (Relative minor: ${noteChart.getKeyName(relativeMinorOfMajorKey(m.keyDegree))}m)` +
+                          ? keyMatches.map(m => noteRenderer.getKeyName({keyDegree: m.keyDegree}, undefined, {useAccidentalsFromKey: true}) +
+                                                ` (Relative minor: ${noteRenderer.getRelativeMinorKeyName({keyDegree: m.keyDegree}, undefined, {useAccidentalsFromKey: true})})` +
                                                 `, Total score: ${m.score + m.initialChordScoreBump}` +
                                                 `, Chord score: ${m.score}` +
                                                 (`, Initial chord score bump: ${m.initialChordScoreBump}`))
                           : "No key matches");
 
-            return keyMatches[0]?.keyDegree;
+            return keyMatches[0] ? {keyDegree: keyMatches[0].keyDegree} : undefined;
         }
 
         function parseLines(text) {
@@ -1812,7 +1837,7 @@
                             keyDegree = relativeMajorOfMinorKey(keyDegree);
                         }
 
-                        onKeyDetected(keyDegree);
+                        onKeyDetected({keyDegree, ...part.groups});
 
                         subFragments.push({
                             type: 'metadata.key',
@@ -1900,12 +1925,12 @@
                         }
                     }
                 } else if (parsedLine.is('tablature')) {
-                    const matcGroups = matchFirst(text, parsedLine.is('tablatureTiming') ? regexes.tablatureTiming : regexes.tablature).groups;
+                    const matchGroups = matchFirst(text, parsedLine.is('tablatureTiming') ? regexes.tablatureTiming : regexes.tablature).groups;
                     parsedLine.fragments.push({
                         type: 'tablature',
                         text: text,
                         index: 0,
-                        data: {pre: matcGroups.pre, tablature: matcGroups.tablature, post: matcGroups.post}
+                        data: {pre: matchGroups.pre, tablature: matchGroups.tablature, post: matchGroups.post}
                     });
                 } else if (shouldChordify(parsedLine)) {
                     const chordOrMetadataRegex = rgx([regexes.metadata, regexes.chord]);
@@ -1976,46 +2001,61 @@
 
     <script id="domAndDataManipulationFunctions">
         function createNashvilleLegend(lines, transposeConfig, noteNamingConfig) {
-            const usedChords = lines.flatMap(line => line.chords)
-                                    .filter(chord => chord.key != undefined && chord.root && !chord.isChordLegend);
+            const usedNotes = lines.flatMap(line => line.chords)
+                                   .filter(chord => chord.key && chord.root && !chord.isChordLegend)
+                                   .flatMap(chord => chord.bass
+                                               ? [{noteName: chord.root, key: chord.key}, {noteName: chord.bass, key: chord.key}]
+                                               : [{noteName: chord.root, key: chord.key}])
+                                   .map(note => {
+                                       return {
+                                           noteName: note.noteName,
+                                           noteDegree: noteChart.getNoteDegree(note.noteName),
+                                           relativeNoteDegree: transp(noteChart.getNoteDegree(note.noteName), -note.key.keyDegree),
+                                           key: note.key
+                                       };
+                                   });
 
-            const usedKeys = new Set(usedChords.map(chord => chord.key));
+            const usedKeys = new Map();
+            for (const note of usedNotes) {
+                let keyWithNotes = usedKeys.get(note.key.keyDegree);
+                if (!keyWithNotes) {
+                    keyWithNotes = {key: note.key, notes: new Map()};
+                    usedKeys.set(note.key.keyDegree, keyWithNotes);
+                }
+
+                if (!keyWithNotes.notes.get(note.relativeNoteDegree)) {
+                    keyWithNotes.notes.set(note.relativeNoteDegree, note);
+                }
+            }
 
             if (usedKeys.size == 0) {
                 return undefined;
             }
 
-            const usedChordDegrees = new Set(usedChords.flatMap(chord => {
-                                                           const chordDegree = transp(noteChart.getNoteDegree(chord.root), -chord.key);
-                                                           return chord.bass
-                                                                       ? [chordDegree, transp(noteChart.getNoteDegree(chord.bass), -chord.key)]
-                                                                       : [chordDegree];
-                                                       }).sort(compare));
+            const usedRelativeNoteDegrees = new Set(usedNotes.map(note => note.relativeNoteDegree).sort(compare));
 
             let header = '<th></th>';
-
-            for(const chordDegreeInCMajor of usedChordDegrees) {
-                header += `<th>${span(() => charSpans(noteChart.getNumeral(chordDegreeInCMajor, 0)), 'nashville-numeral')}</th>`;
+            for (const relativeNoteDegree of usedRelativeNoteDegrees) {
+                header += `<th>${span(() => charSpans(noteChart.getNumeral(relativeNoteDegree, 0)), 'nashville-numeral')}</th>`;
             }
 
             let data = ''
-            for (const key of usedKeys) {
-                const keyDegree = transposeConfig.transp(key);
-
-                const keyName = getKeyName(keyDegree, noteNamingConfig);
-                const relativeMinorKeyName = getKeyName(relativeMinorOfMajorKey(keyDegree), noteNamingConfig);
+            for (const keyWithNotes of usedKeys.values()) {
+                const keyName = noteRenderer.getKeyName(keyWithNotes.key, transposeConfig, noteNamingConfig);
+                const relativeMinorKeyName = noteRenderer.getRelativeMinorKeyName(keyWithNotes.key, transposeConfig, noteNamingConfig);
 
                 data += '<tr>';
-                data += `<th class="key-name">${charSpans(keyName)}(${charSpans(relativeMinorKeyName)}m)</th>`;
+                data += `<th class="key-name">${charSpans(keyName)}(${charSpans(relativeMinorKeyName)})</th>`;
 
-                for(const chordDegreeInCMajor of usedChordDegrees) {
-                    const chordDegree = transp(chordDegreeInCMajor, keyDegree);
+                for (const relativeNoteDegree of usedRelativeNoteDegrees) {
+                    const note = keyWithNotes.notes.get(relativeNoteDegree);
+                    if (!note) {
+                        data += `<td></td>`
+                        continue;
+                    }
 
-                    const chordName = noteNamingConfig.useAccidentalsFromKey
-                        ? noteChart.getNoteByDegreeAndKey(chordDegree, keyDegree, noteNamingConfig.preferredAccidental)
-                        : noteChart.getNoteByDegree(chordDegree, noteNamingConfig.preferredAccidental);
-
-                    data += `<td>${span(() => charSpans(chordName), 'chord')}</td>`
+                    const noteName = noteRenderer.getNoteName(note, keyWithNotes.key, transposeConfig, noteNamingConfig);
+                    data += `<td>${span(() => charSpans(noteName), 'note')}</td>`
                 }
 
                 data += '</tr>'
@@ -2125,10 +2165,6 @@
 
                 effectiveTransposition: function() {
                     return this.transpose - this.capo + this.capoAsWritten;
-                },
-
-                transp: function(degree) {
-                    return transp(degree, this.effectiveTransposition());
                 }
             }
 
@@ -2147,9 +2183,9 @@
             applyClass(doc.content, data.prettyTablatures.get(), 'pretty-tablatures');
 
             if (lines.detectedKey != undefined) {
-                const keyName = getKeyName(transposeConfig.transp(lines.detectedKey), noteNamingConfig);
-                const relativeMinorKeyName = getKeyName(relativeMinorOfMajorKey(transposeConfig.transp(lines.detectedKey)), noteNamingConfig);
-                doc.detectedKey.innerHTML = `Detected key: <strong>${keyName}</strong> (relative minor: <strong>${relativeMinorKeyName}m</strong>)`
+                const keyName = noteRenderer.getKeyName(lines.detectedKey, transposeConfig, noteNamingConfig);
+                const relativeMinorKeyName = noteRenderer.getRelativeMinorKeyName(lines.detectedKey, transposeConfig, noteNamingConfig);
+                doc.detectedKey.innerHTML = `Detected key: <strong>${keyName}</strong> (relative minor: <strong>${relativeMinorKeyName}</strong>)`
             } else {
                 doc.detectedKey.innerHTML = '';
             }
