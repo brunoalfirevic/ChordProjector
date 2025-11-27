@@ -974,17 +974,36 @@
             }
         }
 
-        rgx.of = function(optionArg, characters) {
-            if (optionArg == undefined && characters == undefined) {
+        rgx.of = function(optionArg, str) {
+            if (optionArg == undefined && str == undefined) {
                 throw new Error("Invalid arguments");
-            } else if (characters == undefined) {
-                characters = optionArg;
+            } else if (str == undefined) {
+                str = optionArg;
                 optionArg = {};
             } else if (typeof optionArg === 'string' || optionArg instanceof String) {
                 optionArg = {name: optionArg};
             }
 
-            return rgx(optionArg, new RegExp(RegExp.escape(characters)));
+            return rgx(optionArg, new RegExp(RegExp.escape(str)));
+        };
+
+        rgx.ofCaseInsensitive = function(optionArg, str) {
+            if (optionArg == undefined && str == undefined) {
+                throw new Error("Invalid arguments");
+            } else if (str == undefined) {
+                str = optionArg;
+                optionArg = {};
+            } else if (typeof optionArg === 'string' || optionArg instanceof String) {
+                optionArg = {name: optionArg};
+            }
+
+            const pattern = Array.from(str)
+                                 .map(c => c.toUpperCase() != c.toLowerCase()
+                                               ? `[${RegExp.escape(c.toUpperCase())}${RegExp.escape(c.toLowerCase())}]`
+                                               : RegExp.escape(c))
+                                 .join('');
+
+            return rgx(optionArg, new RegExp(pattern));
         };
 
         rgx.chars = function(optionArg, characters) {
@@ -1383,10 +1402,21 @@
                 metadata: /\{(?<metadata>[^\}]+)\}/,
                 chordLegend: rgx(/^\s*/, chord, /(:|\s)\s*/, fingering, /\s*$/),
 
-                capoMetadataFragment: /(?<capoPrefix>Capo(:|\s)\s*)(?<capo>\d+)(?<capoSuffix>st|nd|rd|th)?/,
-                keyMetadataFragment: rgx(rgx('keyPrefix', /(Key|Key Change|Back to key)(:|\s)\s*/),
+                capoMetadataFragment: rgx(rgx('capoPrefix', rgx.ofCaseInsensitive('Capo'), /(:|\s)\s*/),
+                                          /(?<capo>\d+)/,
+                                          rgx({name: 'capoSuffix', optional: true},
+                                              [rgx.ofCaseInsensitive('st'),
+                                               rgx.ofCaseInsensitive('nd'),
+                                               rgx.ofCaseInsensitive('rd'),
+                                               rgx.ofCaseInsensitive('th')])),
+
+                keyMetadataFragment: rgx(rgx('keyPrefix',
+                                             [rgx.ofCaseInsensitive('Key'),
+                                              rgx.ofCaseInsensitive('Key change'),
+                                              rgx.ofCaseInsensitive('Back to key')],
+                                             /(:|\s)\s*/),
                                          rgx("keyName", noteNames),
-                                         /(?<isMinor>m)?/)
+                                         rgx.ofCaseInsensitive({name: 'isMinor', optional: true}, 'm'))
             }
         })();
 
@@ -1820,8 +1850,7 @@
             }
 
             function createMetadataSubFragments(metadataText, onKeyDetected) {
-                const fragmentPartsRegex = rgx({flags: 'i'},
-                                               rgx.lookBehind(/(^|,)\s*/),
+                const fragmentPartsRegex = rgx(rgx.lookBehind(/(^|,)\s*/),
                                                rgx.lookAhead(/[^\s,]/),
                                                [regexes.keyMetadataFragment, regexes.capoMetadataFragment, /[^,]+/],
                                                rgx.lookBehind(/[^\s,]/),
