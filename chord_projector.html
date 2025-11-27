@@ -596,8 +596,13 @@
                     </div>
 
                     <div class="flex-row">
-                        <label for="stylizeAccidentals">Stylize accidentals:</label>
-                        <input type="checkbox" id="stylizeAccidentals" value="true">
+                        <label for="originalNoteNames">Original note names:</label>
+                        <input type="checkbox" id="originalNoteNames" value="true">
+                    </div>
+
+                    <div class="flex-row">
+                        <label for="useNashvilleNotation">Nashville notation:</label>
+                        <input type="checkbox" id="useNashvilleNotation" value="true">
                     </div>
                 </div>
 
@@ -618,8 +623,8 @@
                     </div>
 
                     <div class="flex-row">
-                        <label for="useNashvilleNotation">Nashville notation:</label>
-                        <input type="checkbox" id="useNashvilleNotation" value="true">
+                        <label for="stylizeAccidentals">Stylize accidentals:</label>
+                        <input type="checkbox" id="stylizeAccidentals" value="true" checked>
                     </div>
                 </div>
 
@@ -1507,8 +1512,12 @@
             return {
                 getNoteName: function(note, key, transposeConfig, noteNamingConfig) {
                     const transpose = transposeConfig?.effectiveTransposition() ?? 0;
-                    const noteDegree = transp(note.noteDegree, transpose);
 
+                    if (noteNamingConfig.originalNoteNames && transpose == 0 && note.noteName) {
+                        return note.noteName;
+                    }
+
+                    const noteDegree = transp(note.noteDegree, transpose);
                     if (key && noteNamingConfig.useAccidentalsFromKey) {
                         const keyDegree = transp(key.keyDegree, transpose);
                         return noteChart.getNoteByDegreeAndKey(noteDegree, keyDegree, noteNamingConfig.preferredAccidental);
@@ -1519,8 +1528,12 @@
 
                 getKeyName: function(key, transposeConfig, noteNamingConfig) {
                     const transpose = transposeConfig?.effectiveTransposition() ?? 0;
-                    const keyDegree = transp(key.keyDegree, transpose);
 
+                    if (noteNamingConfig.originalNoteNames && transpose == 0 && key.keyName && !key.isMinor) {
+                        return key.keyName;
+                    }
+
+                    const keyDegree = transp(key.keyDegree, transpose);
                     return noteNamingConfig.useAccidentalsFromKey
                                 ? noteChart.getKeyName(keyDegree)
                                 : noteChart.getNoteByDegree(keyDegree, noteNamingConfig.preferredAccidental);
@@ -1528,6 +1541,11 @@
 
                 getRelativeMinorKeyName: function(key, transposeConfig, noteNamingConfig) {
                     const transpose = transposeConfig?.effectiveTransposition() ?? 0;
+
+                    if (noteNamingConfig.originalNoteNames && transpose == 0 && key.keyName && key.isMinor) {
+                        return key.keyName + 'm';
+                    }
+
                     const keyDegree = transp(key.keyDegree, transpose);
                     const keyName = noteNamingConfig.useAccidentalsFromKey
                                         ? noteChart.getNoteByDegreeAndKey(relativeMinorOfMajorKey(keyDegree), keyDegree, noteNamingConfig.preferredAccidental)
@@ -2184,7 +2202,8 @@
             const noteNamingConfig = {
                 preferredAccidental: data.preferredAccidental.get(),
                 useNashvilleNotation: data.useNashvilleNotation.get(),
-                useAccidentalsFromKey: data.useAccidentalsFromKey.get()
+                useAccidentalsFromKey: data.useAccidentalsFromKey.get(),
+                originalNoteNames: data.originalNoteNames.get()
             };
 
             const transposeConfig = {
@@ -2296,6 +2315,7 @@
             stylizeAccidentals: bindData({el: doc.stylizeAccidentals, hash: true, cookie: true}, () => redraw()),
             useAccidentalsFromKey: bindData({el: doc.useAccidentalsFromKey, hash: true, cookie: true}, () => redraw()),
             prettyTablatures: bindData({el: doc.prettyTablatures, hash: true, cookie: true}, () => redraw()),
+            originalNoteNames: bindData({el: doc.originalNoteNames, hash: true, cookie: true}, () => redraw()),
             title: bindData({hash: 'title'}, value => document.title = value),
 
             getParsedLines: (function() {
