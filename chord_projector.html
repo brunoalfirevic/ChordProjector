@@ -46,6 +46,19 @@
             overflow: hidden; /* Prevents scrolling on the body */
         }
 
+        /* for testing fonts */
+        html, body {
+            /* Fonts generally available on windows  */
+            /* font-family: 'Consolas for Powerline', 'Consolas', 'Courier New', 'Adobe NotDef'; */
+
+            /* Fonts generally available on Mac */
+            /* font-family: 'Roboto Mono', Menlo, Monaco, 'Courier New', 'Andale Mono', monospace, 'STIX Two Math', 'Adobe NotDef'; */
+
+            /* font-family: 'Roboto Mono', Menlo, Monaco, 'Courier New', 'Andale Mono', monospace, 'Adobe NotDef'; */
+
+            /* font-family: 'Roboto Mono', 'Julia Mono Webfont', 'Adobe NotDef'; */
+        }
+
         body {
             display: flex;
             flex-direction: column;
@@ -1374,7 +1387,7 @@
         }
 
         function parallelMajorOfMajorKey(keyDegree) {
-            return transp(keyDegree, 9);
+            return transp(keyDegree, -3);
         }
 
         function relativeMinorOfMajorKey(keyDegree) {
@@ -1466,73 +1479,89 @@
                        '#';
             }
 
+            function totalAccidentalValue(noteName) {
+                noteName = normalizeAccidentals(noteName);
+                return noteName.split('#').length - noteName.split('b').length;
+            }
+
+            function stripAccidentals(noteName) {
+                return normalizeAccidentals(noteName).replaceAll('b', '').replaceAll('#', '');
+            }
+
+            const wholeNoteDegrees = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11};
+            const majorScaleDegrees = [0, null, 1, null, 2, 3, null, 4, null, 5, null, 6];
+
             const notes = {
                 '#':        ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'],
                 'b':        ['C', 'Db', 'D', 'Eb', 'E', 'F', 'Gb', 'G', 'Ab', 'A', 'Bb', 'B'],
                 'auto':     ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'],
                 'keyNames': ['C', 'Db', 'D', 'Eb', 'E', 'F', 'F#', 'G', 'Ab', 'A', 'Bb', 'B'],
-                'numeral':  ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7']
-            };
-
-            const wholeNoteDegrees = {'C': 0, 'D': 2, 'E': 4, 'F': 5, 'G': 7, 'A': 9, 'B': 11, 'H': 11};
-
-            const notesByKey = {
-                //     0     1     2     3     4      5     6     7     8     9      10    11
-                //     1           2           3      4           5           6            7
-                'C':  ['C',  null, 'D',  null, 'E',   'F',  null, 'G',  null, 'A',   null, 'B'  ],
-                'C#': ['C#', null, 'D#', null, 'E#',  'F#', null, 'G#', null, 'A#',  null, 'B#' ],
-                'Db': ['Db', null, 'Eb', null, 'F',   'Gb', null, 'Ab', null, 'Bb',  null, 'C'  ],
-                'D':  ['D',  null, 'E',  null, 'F#',  'G',  null, 'A',  null, 'B',   null, 'C#' ],
-                'D#': ['D#', null, 'E#', null, 'F##', 'G#', null, 'A#', null, 'B#',  null, 'C##'],
-                'Eb': ['Eb', null, 'F',  null, 'G',   'Ab', null, 'Bb', null, 'C',   null, 'D'  ],
-                'E':  ['E',  null, 'F#', null, 'G#',  'A',  null, 'B',  null, 'C#',  null, 'D#' ],
-                'F':  ['F',  null, 'G',  null, 'A',   'Bb', null, 'C',  null, 'D',   null, 'E'  ],
-                'F#': ['F#', null, 'G#', null, 'A#',  'B',  null, 'C#', null, 'D#',  null, 'E#' ],
-                'Gb': ['Gb', null, 'Ab', null, 'Bb',  'Cb', null, 'Db', null, 'Eb',  null, 'F'  ],
-                'G':  ['G',  null, 'A',  null, 'B',   'C',  null, 'D',  null, 'E',   null, 'F#' ],
-                'G#': ['G#', null, 'A#', null, 'B#',  'C#', null, 'D#', null, 'E#',  null, 'F##'],
-                'Ab': ['Ab', null, 'Bb', null, 'C',   'Db', null, 'Eb', null, 'F',   null, 'G'  ],
-                'A':  ['A',  null, 'B',  null, 'C#',  'D',  null, 'E',  null, 'F#',  null, 'G#' ],
-                'A#': ['A#', null, 'B#', null, 'C##', 'D#', null, 'E#', null, 'F##', null, 'G##'],
-                'Bb': ['Bb', null, 'C',  null, 'D',   'Eb', null, 'F',  null, 'G',   null, 'A'  ],
-                'B':  ['B',  null, 'C#', null, 'D#',  'E',  null, 'F#', null, 'G#',  null, 'A#' ]
+                'numerals': ['1', 'b2', '2', 'b3', '3', '4', 'b5', '5', 'b6', '6', 'b7', '7'],
+                'whole':    Object.keys(wholeNoteDegrees)
             };
 
             return {
                 getNoteDegree: function(noteName) {
-                    noteName = normalizeAccidentals(noteName);
+                    const correction = totalAccidentalValue(noteName);
 
-                    const correction = noteName.includes('##') ? 2 :
-                                       noteName.includes('#') ? 1 :
-                                       noteName.includes('bb') ? -2 :
-                                       noteName.includes('b') ? - 1 :
-                                       0;
-
-                    noteName = noteName.replaceAll('b', '').replaceAll('#', '');
-                    if (wholeNoteDegrees[noteName] != undefined) {
-                        return transp(wholeNoteDegrees[noteName], correction);
-                    } else {
-                        return undefined;
+                    noteName = stripAccidentals(noteName);
+                    if (noteName == 'H') {
+                        noteName = 'B';
                     }
+
+                    return wholeNoteDegrees[noteName] != undefined
+                        ? transp(wholeNoteDegrees[noteName], correction)
+                        : undefined;
                 },
 
                 getNoteByDegree: function(degree, preferredAccidental) {
                     return notes[preferredAccidental ?? 'auto'][degree];
                 },
 
-                getNoteByDegreeAndKey(noteDegree, keyDegree, preferredAccidental) {
-                    const keyName = notes.keyNames[keyDegree];
-                    let result = notesByKey[keyName][transp(noteDegree, -keyDegree)];
+                walkMajorScale: function (fromMajorScaleDegree, toMajorScaleDegree, startingNote) {
+                    const startingNoteDegree = this.getNoteDegree(startingNote);
+                    const startingWholeNote = stripAccidentals(startingNote);
+                    const startingWholeNoteMajorScaleDegree = majorScaleDegrees[wholeNoteDegrees[startingWholeNote]];
 
-                    if (!result) {
-                        result = notes[keyAccidental(keyName, preferredAccidental)][noteDegree];
+                    const resultWholeNote = notes.whole[mod(startingWholeNoteMajorScaleDegree + toMajorScaleDegree - fromMajorScaleDegree, 7)];
+                    const resultDegree = this.getNoteDegree(resultWholeNote);
+
+                    const targetDegree = transp(startingNoteDegree,
+                                                wholeNoteDegrees[notes.whole[toMajorScaleDegree]] - wholeNoteDegrees[notes.whole[fromMajorScaleDegree]]);
+
+                    const correction1 = targetDegree - resultDegree;
+                    const correction2 = (12 - Math.abs(correction1)) * -Math.sign(correction1);
+                    const correction = Math.abs(correction1) < Math.abs(correction2) ? correction1 : correction2;
+
+                    return resultWholeNote + (correction > 0 ? '#' : 'b').repeat(Math.abs(correction));
+                },
+
+                getNoteByDegreeAndKey: function(noteDegree, keyNameOrDegree, preferredAccidental) {
+                    const [keyName, keyDegree] =
+                        typeof keyNameOrDegree === 'string' || keyNameOrDegree instanceof String
+                            ? [keyNameOrDegree, this.getNoteDegree(keyNameOrDegree)]
+                            : [notes.keyNames[keyNameOrDegree], keyNameOrDegree];
+
+                    const noteDegreeRelativeToKey = transp(noteDegree, -keyDegree);
+                    const majorScaleDegree = majorScaleDegrees[noteDegreeRelativeToKey];
+
+                    if (majorScaleDegree != undefined) {
+                        return this.walkMajorScale(0, majorScaleDegree, keyName);
                     }
 
-                    return result;
+                    let lower = this.walkMajorScale(0, majorScaleDegrees[transp(noteDegreeRelativeToKey, -1)], keyName);
+                    let higher = this.walkMajorScale(0, majorScaleDegrees[transp(noteDegreeRelativeToKey, 1)], keyName);
+
+                    lower = totalAccidentalValue(lower) < 0 ? lower.replace('b', '') : lower + '#';
+                    higher = totalAccidentalValue(higher) > 0 ? higher.replace('#', '') : higher + 'b';
+
+                    return lower.length < higher.length ? lower :
+                           higher.length < lower.length ? higher :
+                           notes[keyAccidental(keyName, preferredAccidental)][noteDegree];
                 },
 
                 getNumeral(noteDegree, keyDegree) {
-                    return notes.numeral[transp(noteDegree, -keyDegree)];
+                    return notes.numerals[transp(noteDegree, -keyDegree)];
                 },
 
                 getKeyName(keyDegree) {
@@ -1542,12 +1571,24 @@
         })();
 
         const noteRenderer = (function() {
+            function shouldUseOriginalNoteName(key, transpose, noteNamingConfig) {
+                return noteNamingConfig.originalNoteNames && transpose == 0;
+            }
+
             return {
                 getNoteName: function(note, key, transposeConfig, noteNamingConfig) {
                     const transpose = transposeConfig?.effectiveTransposition() ?? 0;
 
-                    if (noteNamingConfig.originalNoteNames && transpose == 0 && note.noteName) {
-                        return note.noteName;
+                    if (shouldUseOriginalNoteName(key, transpose, noteNamingConfig)) {
+                        // TODO - option to use the original name of key for note rendering, but not original note names
+                        if (note.noteName) {
+                            return note.noteName;
+                        }
+
+                        if (key.keyName) {
+                            const keyName = noteChart.walkMajorScale(key.isMinor ? 5 : 0, 0, key.keyName);
+                            return noteChart.getNoteByDegreeAndKey(note.noteDegree, keyName, noteNamingConfig.preferredAccidental)
+                        }
                     }
 
                     const noteDegree = transp(note.noteDegree, transpose);
@@ -1562,8 +1603,8 @@
                 getKeyName: function(key, transposeConfig, noteNamingConfig) {
                     const transpose = transposeConfig?.effectiveTransposition() ?? 0;
 
-                    if (noteNamingConfig.originalNoteNames && transpose == 0 && key.keyName && !key.isMinor) {
-                        return key.keyName;
+                    if (shouldUseOriginalNoteName(key, transpose, noteNamingConfig) && key.keyName) {
+                        return noteChart.walkMajorScale(key.isMinor ? 5 : 0, 0, key.keyName);
                     }
 
                     const keyDegree = transp(key.keyDegree, transpose);
@@ -1575,8 +1616,8 @@
                 getRelativeMinorKeyName: function(key, transposeConfig, noteNamingConfig) {
                     const transpose = transposeConfig?.effectiveTransposition() ?? 0;
 
-                    if (noteNamingConfig.originalNoteNames && transpose == 0 && key.keyName && key.isMinor) {
-                        return key.keyName + 'm';
+                    if (shouldUseOriginalNoteName(key, transpose, noteNamingConfig) && key.keyName) {
+                        return noteChart.walkMajorScale(0, key.isMinor ? 0 : 5, key.keyName) + "m";
                     }
 
                     const keyDegree = transp(key.keyDegree, transpose);
