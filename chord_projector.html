@@ -215,10 +215,13 @@
             text-overflow: clip; /* Clips text that doesn't fit */
         }
 
-        .line .chord,
-        .line.nashville-legend .note {
+        .line .chord {
             position: relative;
             z-index: -1; /* to make character around chords appear above the highlighted background */
+        }
+
+        .line .chord,
+        .line.nashville-legend .note {
             font-weight: 700;
             background-color: rgb(232, 232, 232);
             border-radius: 3px;
@@ -269,6 +272,10 @@
             font-size: 0.9em;
             text-align: right;
             width: auto;
+        }
+
+        .line.nashville-legend .major-degree {
+            background-color: rgb(243, 243, 243);
         }
 
         .line.empty-line {
@@ -894,7 +901,7 @@
             }
         }
 
-        function span(content, className) {
+        function renderElementToString(elementName, renderIfEmpty, content, className) {
             let shouldEncode = true;
 
             if (typeof content === 'function') {
@@ -902,15 +909,32 @@
                 shouldEncode = false;
             }
 
-            if (isEmpty(content)) {
+
+            if (!renderIfEmpty && isEmpty(content)) {
                 return '';
             }
 
+            content = content ?? '';
+
             if (Array.isArray(className)) {
                 className = className.filter(v => !!v).join(" ");
+            } else if (!className) {
+                className = '';
             }
 
-            return `<span${isWhitespace(className) ? '' : ` class="${className}"`}>${shouldEncode ? encodeHtml(content) : content}</span>`;
+            return `<${elementName}${isWhitespace(className) ? '' : ` class="${className}"`}>${shouldEncode ? encodeHtml(content) : content}</${elementName}>`;
+        }
+
+        function span(content, className) {
+            return renderElementToString('span', false, content, className);
+        }
+
+        function th(content, className) {
+            return renderElementToString('th', true, content, className);
+        }
+
+        function td(content, className) {
+            return renderElementToString('td', true, content, className);
         }
 
         function charSpans(content) {
@@ -2088,11 +2112,15 @@
                 return undefined;
             }
 
-            const usedRelativeNoteDegrees = new Set(usedNotes.map(note => note.relativeNoteDegree).sort(compare));
+            const usedRelativeNoteDegrees = new Set(usedNotes.map(note => note.relativeNoteDegree)
+                                                             .sort(compare));
 
-            let header = '<th></th>';
+            let header = '<th class="empty"></th>';
             for (const relativeNoteDegree of usedRelativeNoteDegrees) {
-                header += `<th>${span(() => charSpans(noteChart.getNumeral(relativeNoteDegree, 0)), 'nashville-numeral')}</th>`;
+                const isMajorScaleDegree = noteChart.getNoteByDegree(relativeNoteDegree).length == 1;
+                header += th(() => span(() => charSpans(noteChart.getNumeral(relativeNoteDegree, 0))),
+                             ['nashville-numeral',
+                             isMajorScaleDegree && 'major-degree']);
             }
 
             let data = ''
@@ -2104,14 +2132,16 @@
                 data += `<th class="key-name">${charSpans(keyName)}(${charSpans(relativeMinorKeyName)})</th>`;
 
                 for (const relativeNoteDegree of usedRelativeNoteDegrees) {
+                    const isMajorScaleDegree = noteChart.getNoteByDegree(relativeNoteDegree).length == 1;
+
                     const note = keyWithNotes.notes.get(relativeNoteDegree);
                     if (!note) {
-                        data += `<td></td>`
+                        data += td('', isMajorScaleDegree && 'major-degree');
                         continue;
                     }
 
                     const noteName = noteRenderer.getNoteName(note, keyWithNotes.key, transposeConfig, noteNamingConfig);
-                    data += `<td>${span(() => charSpans(noteName), 'note')}</td>`
+                    data += td(() => span(() => charSpans(noteName), 'note'), isMajorScaleDegree && 'major-degree');
                 }
 
                 data += '</tr>'
