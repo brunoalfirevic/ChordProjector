@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Chord Projector</title>
+    <link rel="icon" type="image/svg+xml" href="favicon-browse.svg" id="favicon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Music&family=Roboto+Mono:wght@100..700&display=block" rel="stylesheet">
@@ -108,6 +109,7 @@
         .controls input[type="checkbox"] {
             width: 13px;
             margin-top: 8px;
+            cursor: pointer;
         }
 
         .controls input, .controls select {
@@ -119,11 +121,13 @@
         .controls select {
             padding-block: 1px;
             padding-inline: 3px;
+            cursor: pointer;
         }
 
         .controls button {
-            width: 100px;
             margin: 3px;
+            cursor: pointer;
+            min-width: 100px;
         }
 
         .keyboard-shortcuts {
@@ -380,7 +384,176 @@
             user-select: none;
         }
 
+        .cast-mode-overlay {
+            font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, 'Open Sans', 'Helvetica Neue', sans-serif;
+            box-sizing: border-box;
+            position: fixed;
+            left: 0px;
+            right: 0px;
+            bottom: 0px;
+            width: 100%;
+
+            display: flex;
+            justify-content: center;
+            align-items: flex-start;
+
+            height: 45%;
+            padding-top: 80px;
+
+            background: linear-gradient(to bottom,
+                rgba(180, 60, 60, 0.0) 0px,
+                rgba(180, 60, 60, 0.5) 64px,
+                rgba(180, 60, 60, 0.8) 40%,
+                rgba(140, 40, 40, 0.95) 100%);
+        }
+
+        .cast-mode-overlay .card {
+            display: flex;
+            align-items: center;
+            flex-direction: column;
+            border-radius: 12px;
+            padding: 24px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            border: 1px solid rgba(255,255,255,0.5);
+            box-shadow: 0 4px 20px rgba(0,0,0,0.7);
+        }
+
+        .cast-mode-overlay .title {
+            color: white;
+            font-weight: 700;
+            font-size: 20px;
+            text-transform: capitalize;
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+            padding: 0px;
+            margin: 0px;
+            margin-bottom: 16px;
+        }
+
+        .cast-mode-overlay .description {
+            text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+            color: rgba(255,255,255,0.95);
+            font-size: 14px;
+            margin-bottom: 16px;
+            max-width: 400px;
+        }
+
+        .cast-mode-overlay .title:empty,
+        .cast-mode-overlay .artist:empty {
+            display: none;
+        }
+
+        .cast-mode-overlay button {
+            background-color: lightgray;
+            color: gray;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            font-weight: 600;
+            font-size: 14px;
+            transition: background-color 0.2s;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+        }
+
+        .cast-mode-overlay button:enabled {
+            cursor: pointer;
+            color: #333;
+            background-color: white;
+        }
+
+        .cast-mode-overlay button:enabled:hover {
+            background-color: rgb(239, 239, 239);
+        }
+
+        .new-song-info-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            pointer-events: none;
+            z-index: 1000;
+            box-sizing: border-box;
+        }
+
+        .new-song-info-overlay .modal {
+            position: relative;
+            background: linear-gradient(135deg, rgb(30, 58, 95) 0%, rgb(15, 39, 68) 50%, rgb(26, 26, 46) 100%);
+            color: white;
+            padding: 32px 40px;
+            border-radius: 16px;
+            text-align: center;
+            pointer-events: auto;
+            border: 1px solid rgba(147, 197, 253, 0.5);
+            overflow: hidden;
+
+            /* Animation properties */
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.8s cubic-bezier(0.34, 1.56, 0.64, 1);
+            box-shadow: 0 0 0 rgba(59, 130, 246, 0);
+        }
+
+        .new-song-info-overlay.visible .modal {
+            opacity: 1;
+            transform: scale(1);
+            box-shadow:
+                0 0 60px rgba(59, 130, 246, 0.6),
+                0 0 100px rgba(96, 165, 250, 0.4),
+                0 0 140px rgba(147, 197, 253, 0.25),
+                0 20px 50px rgba(0, 0, 0, 0.3);
+        }
+
+        /* Exit animation */
+        .new-song-info-overlay.hiding .modal {
+            opacity: 0;
+            transform: scale(1.05);
+            transition: all 1.8s ease-in;
+            box-shadow: 0 0 0 rgba(59, 130, 246, 0);
+        }
+
+        .new-song-info-overlay .modal .info {
+            font-size: 28px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            color: rgb(191, 219, 254);
+            position: relative;
+        }
+
+        .new-song-info-overlay .modal .title {
+            font-size: 40px;
+            font-weight: 700;
+            text-transform: capitalize;
+            margin-top: 16px;
+            color: white;
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .new-song-info-overlay .modal .artist {
+            font-size: 32px;
+            font-weight: 700;
+            text-transform: capitalize;
+            margin-top: 12px;
+            margin-bottom: 12px;
+            color: rgba(255, 255, 255, 0.9);
+            text-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
+            position: relative;
+        }
+
+        .new-song-info-overlay .modal .title:empty,
+        .new-song-info-overlay .modal .artist:empty {
+            display: none;
+        }
+
         /* utilities */
+
+        .hidden {
+            display: none !important;
+        }
 
         .flex-row {
             display: flex;
@@ -644,7 +817,13 @@
 
                     <div class="flex-row">
                         <label for="stylizeAccidentals">Stylize accidentals:</label>
-                        <input type="checkbox" id="stylizeAccidentals" value="true" checked>
+                        <input type="checkbox" id="stylizeAccidentals" value="true">
+                    </div>
+
+                    <div class="flex-row">
+                        <label for="castMode" id="castModeLabel">Is casting:</label>
+                        <input type="checkbox" id="castMode" value="true">
+                        <button id="exitCastModeButton" class="hidden" type="button">Stop Cast Mode</button>
                     </div>
                 </div>
 
@@ -701,6 +880,22 @@
         </div>
     </div>
 
+    <div id="castModeOverlay" class="cast-mode-overlay hidden">
+        <div class="card">
+            <div class="title" id="projectionOverlayTitle"></div>
+            <div class="description">You can display these chords on the television. When you send them to the television the current window will be closed.</div>
+            <button id="castButton" type="button">Show on TV</button>
+        </div>
+    </div>
+
+    <div id="newSongInfoOverlay" class="new-song-info-overlay hidden">
+        <div class="modal">
+            <div class="info">New Song Loaded</div>
+            <div id="newSongInfoTitle" class="title"></div>
+            <div id="newSongInfoArtist" class="artist"></div>
+        </div>
+    </div>
+
     <script id="utilityFunctions">
         function debounce(func, wait = 50) {
             let timeout = null;
@@ -713,6 +908,29 @@
             };
         }
 
+        function generateGUID() {
+            return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, c => {
+                const r = Math.random() * 16 | 0; // random integer between 0 and 15
+                const v = c === 'x' ? r : (r & 0x3 | 0x8); // bitwise operations to handle 'y' and 'x'
+                return v.toString(16);
+            });
+        }
+
+        function repeatPeriodically(count, timeout, func) {
+            const intervalHandle = setInterval(() => {
+                count--;
+                try {
+                    if (func(count) || count <= 0) {
+                        clearInterval(intervalHandle);
+                    }
+                } catch {
+                    clearInterval(intervalHandle);
+                }
+            }, timeout);
+
+            return intervalHandle;
+        }
+
         function getHashParam(param) {
             if (!window.location.hash) {
                 return null;
@@ -722,14 +940,22 @@
             return hashParams.get(param);
         }
 
-        function setHashParam(param, value) {
+        function setHashParam(param, value, addHistoryEntry) {
             const hashParams = new URLSearchParams(window.location.hash && window.location.hash.substring(1) || '');
             if (value == undefined) {
                 hashParams.delete(param);
             } else {
                 hashParams.set(param, value);
             }
-            window.location.hash = '#' + hashParams.toString();
+            if (addHistoryEntry) {
+                window.location.hash = '#' + hashParams.toString();
+            } else {
+                if (history.replaceState) {
+                    history.replaceState(undefined, undefined, '#' + hashParams.toString());
+                } else {
+                    window.location.replace('#' + hashParams.toString());
+                }
+            }
         }
 
         function readCookie(name)  {
@@ -743,6 +969,15 @@
             }
 
             return undefined;
+        }
+
+        function localStorageAccessor(key) {
+            return {
+                get: () => window.localStorage.getItem(key),
+                set: value => window.localStorage.setItem(key, value),
+                remove: () => window.localStorage.removeItem(key),
+                exists: () => window.localStorage.getItem(key) != undefined
+            }
         }
 
         function writeCookie(name, value, options = {}) {
@@ -1206,9 +1441,13 @@
                 return false;
             }
 
+            function isCheckbox(element) {
+                return element.nodeName === 'INPUT' && element.type === 'checkbox';
+            }
+
             function loadFromElement() {
-                const rawValue = el.nodeName === 'INPUT' && el.type === 'checkbox' ? (el.checked ? el.value : '')
-                                                                                   : el.value;
+                const rawValue = isCheckbox(el) ? (el.checked ? el.value : '')
+                                                : el.value;
                 const parsedValue = parse(rawValue);
 
                 if (parsedValue !== currentValue) {
@@ -1249,12 +1488,18 @@
             }
 
             if (el) {
-                el.addEventListener('input', () => {
+                const eventName = isCheckbox(el) ? 'click' : 'input';
+
+                el.addEventListener(eventName, event => {
                     const previousValue = currentValue;
                     if (loadFromElement()) {
-                        updateUrl();
-                        updateCookie();
-                        onChange(currentValue, previousValue);
+                        onChange(currentValue, previousValue, undefined, event);
+                        if (!event.defaultPrevented) {
+                            updateUrl();
+                            updateCookie();
+                        } else {
+                            currentValue = previousValue;
+                        }
                     }
                 });
             }
@@ -1442,7 +1687,7 @@
                 tablature: rgx({flags: 'i'},
                                /^(?<pre>\s*)/,
                                rgx('tablature',
-                                   noteNames, rgx.of('|'), rgx.chars({repeat: {min: 4}}, '-─|()~*0123456789hspx'), rgx.of('|')),
+                                   noteNames, rgx.of('|'), rgx.chars({repeat: {min: 4}}, '-─|/()^~*0123456789hspxv'), rgx.of('|')),
                                /$|(?<post>\s.*)$/),
                 tablatureTiming: rgx({flags: 'u'},
                                      /^(?<pre>\s*)/,
@@ -1456,10 +1701,12 @@
                 capoMetadataFragment: rgx(rgx('capoPrefix', rgx.ofCaseInsensitive('Capo'), /(:|\s)\s*/),
                                           /(?<capo>\d+)/,
                                           rgx({name: 'capoSuffix', optional: true},
-                                              [rgx.ofCaseInsensitive('st'),
-                                               rgx.ofCaseInsensitive('nd'),
-                                               rgx.ofCaseInsensitive('rd'),
-                                               rgx.ofCaseInsensitive('th')])),
+                                              rgx({optional: true},
+                                                  [rgx.ofCaseInsensitive('st'),
+                                                   rgx.ofCaseInsensitive('nd'),
+                                                   rgx.ofCaseInsensitive('rd'),
+                                                   rgx.ofCaseInsensitive('th')]),
+                                              rgx.ofCaseInsensitive({optiona: true}, ' fret'))),
 
                 keyMetadataFragment: rgx(rgx('keyPrefix',
                                              [rgx.ofCaseInsensitive('Key'),
@@ -1580,7 +1827,6 @@
                     const transpose = transposeConfig?.effectiveTransposition() ?? 0;
 
                     if (shouldUseOriginalNoteName(key, transpose, noteNamingConfig)) {
-                        // TODO - option to use the original name of key for note rendering, but not original note names
                         if (note.noteName) {
                             return note.noteName;
                         }
@@ -2275,7 +2521,7 @@
 
         function redraw(considerRefitting) {
             const minTextLengthForAutoFitting = 100;
-            const maxFontSizeForAutoFitting = 20;
+            const maxFontSizeForAutoFitting = 21;
 
             const lines = data.getParsedLines();
 
@@ -2343,6 +2589,21 @@
             doc.contentWrapper.classList.add('polished');
         }
 
+        function updateTitle() {
+            if (data.title.get()) {
+                const fullName = data.artist.get() ? `${data.title.get()} - ${data.artist.get()}` : data.title.get();
+                document.title = fullName;
+                doc.projectionOverlayTitle.textContent = fullName;
+                doc.newSongInfoTitle.textContent = data.title.get();
+                doc.newSongInfoArtist.textContent = data.artist.get() ?? '';
+            } else {
+                document.title = 'Chord Projector';
+                doc.projectionOverlayTitle.textContent = '';
+                doc.newSongInfoTitle.textContent = '';
+                doc.newSongInfoArtist.textContent = '';
+            }
+        }
+
         function inferCapo() {
             if (!data.capoAsWritten.hasHashParam()) {
                 const inferredCapo = inferCapoFromText(data.getParsedLines());
@@ -2372,6 +2633,167 @@
                 }
             }
         }
+
+        const instanceManager = (function() {
+            let projectionOfferIntervalHandle = undefined;
+            let newSongModalTimeoutHandle = undefined;
+
+            const local = {
+                mainInstance: localStorageAccessor('instances.mainInstance'),
+                offeredForProjection: localStorageAccessor('offeredForProjection')
+            }
+
+            function showNewSongModal() {
+                if (newSongModalTimeoutHandle) {
+                    clearTimeout(newSongModalTimeoutHandle);
+                }
+
+                doc.newSongInfoOverlay.classList.remove('hidden', 'visible', 'hiding');
+
+                setTimeout(() => {
+                    requestAnimationFrame(() => {
+                        requestAnimationFrame(() => {
+                            doc.newSongInfoOverlay.classList.add('visible');
+
+                            newSongModalTimeoutHandle = setTimeout(() => {
+                                doc.newSongInfoOverlay.classList.remove('visible');
+                                doc.newSongInfoOverlay.classList.add('hiding');
+
+                                setTimeout(() => {
+                                    doc.newSongInfoOverlay.classList.add('hidden');
+                                    doc.newSongInfoOverlay.classList.remove('hiding');
+                                }, 1900);
+                            }, 7000);
+                        });
+                    });
+                }, 700);
+            }
+
+            function reinitializeData(dataBinding, value, defaultValue) {
+                dataBinding.clearHashParam();
+                if (value != undefined) {
+                    dataBinding.set(value);
+                } else {
+                    dataBinding.setElementValueSilently(defaultValue);
+                }
+            }
+
+            return {
+                isMainInstance: () => {
+                    return window.name == local.mainInstance.get();
+                },
+
+                exitCastMode: function() {
+                    local.mainInstance.remove();
+                    this.applyVisuals();
+                },
+
+                applyVisuals: function() {
+                    doc.favicon.href = this.isMainInstance() ? 'favicon-cast.svg' : 'favicon-browse.svg';
+                    doc.castButton.disabled = !data.text.get();
+                    applyClass(doc.castModeOverlay, this.isMainInstance() || !local.mainInstance.exists(), 'hidden');
+                    applyClass(doc.exitCastModeButton, this.isMainInstance() || !local.mainInstance.exists(), 'hidden');
+                    applyClass(doc.castMode, !this.isMainInstance() && local.mainInstance.exists(), 'hidden');
+                    applyClass(doc.castModeLabel, !this.isMainInstance() && local.mainInstance.exists(), 'hidden');
+                },
+
+                initialize: function() {
+                    if (!window.name) {
+                        window.name = generateGUID();
+                    }
+
+                    data.castMode.setElementValueSilently(this.isMainInstance());
+                    this.applyVisuals();
+                },
+
+                mainInstanceChanged: function(value) {
+                    if (value) {
+                        local.mainInstance.set(window.name);
+                    } else if (this.isMainInstance()) {
+                        this.exitCastMode();
+                    }
+
+                    this.applyVisuals();
+                },
+
+                onStorageChanged: function() {
+                    if (!this.isMainInstance()) {
+                        data.castMode.setElementValueSilently(false);
+                        this.applyVisuals();
+                        return;
+                    }
+
+                    if (local.offeredForProjection.exists()) {
+                        const offeredForProjection = JSON.parse(local.offeredForProjection.get());
+                        local.offeredForProjection.remove();
+
+                        if (Date.now() - offeredForProjection.timestamp > 1000) {
+                            return;
+                        }
+
+                        try {
+                            setHashParam('dummyParamForHistoryEntry', generateGUID(), true);
+
+                            reinitializeData(data.transpose, offeredForProjection.transpose, 0);
+                            reinitializeData(data.capo, offeredForProjection.capo, 0);
+                            reinitializeData(data.capoAsWritten, offeredForProjection.capoAsWritten, 0);
+                            reinitializeData(data.useNashvilleNotation, offeredForProjection.useNashvilleNotation, false);
+
+                            data.fontSize.clearHashParam();
+
+                            data.text.set(offeredForProjection.text, {refit: true});
+                            data.title.set(offeredForProjection.title);
+                            data.artist.set(offeredForProjection.artist);
+                        } finally {
+                            setHashParam('dummyParamForHistoryEntry', undefined);
+                        }
+
+                        fullscreen.enable(true);
+
+                        showNewSongModal();
+                    }
+                },
+
+                offerForProjection: function() {
+                    if (!data.text.get()) {
+                        return;
+                    }
+
+                    if (projectionOfferIntervalHandle != undefined) {
+                        clearInterval(projectionOfferIntervalHandle);
+                    }
+
+                    local.offeredForProjection.set(JSON.stringify({
+                        timestamp: Date.now(),
+
+                        text: data.text.get(),
+                        title: data.title.get(),
+                        artist: data.artist.get(),
+
+                        transpose: data.transpose.hasHashParam() ? data.transpose.get() : undefined,
+                        capo: data.capo.hasHashParam() ? data.capo.get() : undefined,
+                        capoAsWritten: data.capoAsWritten.hasHashParam() ? data.capoAsWritten.get() : undefined,
+                        useNashvilleNotation: data.useNashvilleNotation.hasHashParam() ? data.useNashvilleNotation.get() : undefined
+                    }));
+
+                    projectionOfferIntervalHandle = repeatPeriodically(20, 20, count => {
+                        if (!local.offeredForProjection.exists()) {
+                            window.close();
+
+                            setTimeout(() => {
+                                document.body.innerHTML = '<h3>This window could not be closed automatically due to browser restrictions.</h3><div>Your chords have been successfully sent for casting, but you will need to close this window manually.</div>';
+                            }, 100);
+
+                            return true;
+                        }
+
+                        if (count == 0) {
+                            local.offeredForProjection.remove();
+                        }
+                    });
+                }
+            };
+        })();
     </script>
 
     <script id="dataBindings">
@@ -2381,6 +2803,7 @@
         const data = {
             text: bindData({el: doc.text, hash: true}, (_, previousValue, additionalData) => {
                 inferCapo();
+                instanceManager.applyVisuals();
                 redraw(!previousValue || additionalData?.refit);
             }),
             fontSize: bindData({el: doc.fontSize, hash: true}, () => redraw()),
@@ -2396,7 +2819,15 @@
             useAccidentalsFromKey: bindData({el: doc.useAccidentalsFromKey, hash: true, cookie: true}, () => redraw()),
             prettyTablatures: bindData({el: doc.prettyTablatures, hash: true, cookie: true}, () => redraw()),
             originalNoteNames: bindData({el: doc.originalNoteNames, hash: true, cookie: true}, () => redraw()),
-            title: bindData({hash: 'title'}, value => document.title = value),
+            castMode: bindData({el: doc.castMode, hash: false, cookie: false}, (value, _, __, event) => {
+                if (!event || value || !instanceManager.isMainInstance() || confirm("Are you sure you want to exit casting mode?")) {
+                    instanceManager.mainInstanceChanged(value);
+                } else {
+                    event.preventDefault();
+                }
+            }),
+            title: bindData({hash: 'title'}, () => updateTitle()),
+            artist: bindData({hash: 'artist'}, () => updateTitle()),
 
             getParsedLines: (function() {
                 let cacheKey = undefined;
@@ -2502,6 +2933,25 @@
             }
         });
 
+        doc.exitCastModeButton.addEventListener('click', () => {
+            if (confirm("Are you sure you want to exit casting mode?")) {
+                instanceManager.exitCastMode()
+            }
+        });
+
+        doc.castButton.addEventListener('dblclick', e => e.stopPropagation());
+
+        doc.castButton.addEventListener('click', () => instanceManager.offerForProjection());
+
+        window.addEventListener('storage', () => instanceManager.onStorageChanged());
+
+        window.addEventListener('beforeunload', e => {
+            if (instanceManager.isMainInstance()) {
+                e.preventDefault();
+                e.returnValue = true; // Included for legacy support, e.g. Chrome/Edge < 119
+            }
+        });
+
         if ("IntersectionObserver" in window &&
             "IntersectionObserverEntry" in window &&
             "intersectionRatio" in window.IntersectionObserverEntry.prototype) {
@@ -2515,14 +2965,14 @@
     </script>
 
     <script id="main">
-        if (data.title.get()) {
-            document.title = data.title.get();
-        }
+        updateTitle();
 
         if (data.text.get()) {
             inferCapo();
             fullscreen.enable(true); // this will also redraw
         }
+
+        instanceManager.initialize();
     </script>
 </body>
 </html>

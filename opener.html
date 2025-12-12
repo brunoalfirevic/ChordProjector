@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chord Projector Opener</title>
+    <style>
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <h2>Hello from Chord Projector Opener.</h2>
+
+    <div id="openChordProjectorSection" class="hidden">
+        Could not find active casting Chord Projector instance.
+        <br>
+        <a id="chordProjectorLink" href="#">Click here</a> to show the requested chords in the current window.
+    </div>
+
+    <script id="utilities">
+        function getHashParam(param) {
+            if (!window.location.hash) {
+                return null;
+            }
+
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            return hashParams.get(param);
+        }
+
+        function repeatPeriodically(count, timeout, func) {
+            const intervalHandle = setInterval(() => {
+                count--;
+                try {
+                    if (func(count) || count <= 0) {
+                        clearInterval(intervalHandle);
+                    }
+                } catch {
+                    clearInterval(intervalHandle);
+                }
+            }, timeout);
+
+            return intervalHandle;
+        }
+
+        function localStorageAccessor(key) {
+            return {
+                get: () => window.localStorage.getItem(key),
+                set: value => window.localStorage.setItem(key, value),
+                remove: () => window.localStorage.removeItem(key),
+                exists: () => window.localStorage.getItem(key) != undefined
+            }
+        }
+
+        function constructChordProjectorUrl(text, title, artist) {
+            return appendParams('chord_projector.html', text, title, artist);
+        }
+
+        function appendParams(url, text, title, artist) {
+            return url + (text ? '#text=' + encodeURIComponent(text) : '') +
+                         (title ? '&title=' + encodeURIComponent(title) : '') +
+                         (artist ? '&artist=' + encodeURIComponent(artist) : '');
+        }
+    </script>
+
+    <script id="data">
+        const doc = {};
+        document.querySelectorAll('[id]').forEach(element => doc[element.id] = element);
+
+        const local = {
+            offeredForProjection: localStorageAccessor("offeredForProjection")
+        };
+    </script>
+
+    <script id="main">
+        const text = getHashParam('text');
+        if (text) {
+            const title = getHashParam('title');
+            const artist = getHashParam('artist');
+
+            local.offeredForProjection.set(JSON.stringify({
+                text,
+                title,
+                artist,
+                timestamp: Date.now()
+            }));
+
+            repeatPeriodically(20, 20, count => {
+                if (!local.offeredForProjection.exists()) {
+                    window.close();
+                    return true;
+                }
+
+                if (count == 0) {
+                    doc.openChordProjectorSection.classList.remove('hidden');
+                    doc.chordProjectorLink.href = constructChordProjectorUrl(text, title, artist);
+                    local.offeredForProjection.remove();
+                }
+            });
+        }
+    </script>
+</body>

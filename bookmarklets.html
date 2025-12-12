@@ -7,6 +7,10 @@
 
     <script id="projectChordsFunction">
         function projectChords(action) {
+            if (action === 'return_chord_projector_url') {
+                return constructChordProjectorUrl();
+            }
+
             const selector = 'section code pre';
             const element = document.querySelector(selector);
 
@@ -16,24 +20,49 @@
             }
 
             const text = element.textContent.replace(/\nX$/, '');
-            const title = document.querySelector('header:has(h1)')?.textContent || '';
+            let title = document.querySelector('main h1')?.textContent?.trim()?.replace(/ Chords( & Tabs)?$/, '') ?? '';
+            let artist;
+
+            if (title.startsWith("Official ")) {
+                title = title.replace(/^Official /, '');
+                artist = document.querySelector('main h1 + span')?.textContent?.trim();
+            } else {
+                artist = document.querySelector('main h1 + span + span')?.textContent?.trim();
+            }
 
             if (action === 'copy_chords') {
                 copyToClipboard(text);
             } else if (action === 'copy_projector_url') {
                 copyToClipboard(constructChordProjectorUrl(text, title));
             } else if (action === 'open_projector') {
-                openWindow(constructChordProjectorUrl(text, title));
+                openWindow(constructChordProjectorUrl(text, title, artist));
             } else if (action === 'open_projector_in_place') {
-                location.href = constructChordProjectorUrl(text, title);
+                location.href = constructChordProjectorUrl(text, title, artist);
+            } else if (action === 'offer_for_projection') {
+                openWindow(constructOpenerUrl(text, title, artist));
             } else {
                 console.log('Invalid action');
                 return Promise.reject('Invalid action');
             }
 
-            function constructChordProjectorUrl(text, title) {
-                const url = 'https://brunoalfirevic.github.io/ChordProjector/chord_projector.html';
-                return url + '#text=' + encodeURIComponent(text) + '&title=' + encodeURIComponent(title);
+            function constructOpenerUrl(text, title, artist) {
+                const url = constructBaseUrl() +  '/opener.html';
+                return appendParams(url, text, title, artist);
+            }
+
+            function constructChordProjectorUrl(text, title, artist) {
+                const url = constructBaseUrl() +  '/chord_projector.html';
+                return appendParams(url, text, title, artist);
+            }
+
+            function constructBaseUrl() {
+                return 'https://brunoalfirevic.github.io/ChordProjector';
+            }
+
+            function appendParams(url, text, title, artist) {
+                return url + (text ? '#text=' + encodeURIComponent(text) : '') +
+                             (title ? '&title=' + encodeURIComponent(title) : '') +
+                             (artist ? '&artist=' + encodeURIComponent(artist) : '');
             }
 
             function openWindow(url) {
@@ -104,14 +133,17 @@
 </head>
 <body>
     <script>
+        function createLink(href, text) {
+            const link = document.createElement('a');
+            link.href = href;
+            link.innerText = text;
+            return link;
+        }
+
         function createBookmarklet(title, action) {
             const functionSource = projectChords.toString();
-
-            const link = document.createElement('a');
-            link.href = 'javascript:' + encodeURI('(' + functionSource + ')("' + action +'")');
-            link.innerText = title;
-
-            return link;
+            const href = 'javascript:' + encodeURI('(' + functionSource + ')("' + action +'")');
+            return createLink(href, title);
         }
 
         function addBookmarklet(title, action) {
@@ -122,10 +154,8 @@
         addBookmarklet('Copy UG chords', 'copy_chords');
         addBookmarklet('Copy projector url for UG chords', 'copy_projector_url');
         addBookmarklet('Project UG chords', 'open_projector');
-        addBookmarklet('Project UG chords in current tab', 'open_projector_in_place') ;
+        addBookmarklet('Project UG chords in current tab', 'open_projector_in_place');
+        addBookmarklet('Offer for projection', 'offer_for_projection');
+        document.body.appendChild(createLink(projectChords('return_chord_projector_url'), 'Open blank chord projector'));
     </script>
-
-    <a href="https://brunoalfirevic.github.io/ChordProjector/chord_projector.html">
-        Open blank chord projector
-    </a>
 </body>
