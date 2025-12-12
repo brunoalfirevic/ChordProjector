@@ -2590,12 +2590,20 @@
         }
 
         function updateTitle() {
-            if (data.title.get()) {
-                const fullName = data.artist.get() ? `${data.title.get()} - ${data.artist.get()}` : data.title.get();
+            const title = data.title.get()?.trim() ?? '';
+
+            if (title) {
+                let artist = data.artist.get()?.trim() ?? '';
+                if (testRegex(artist, /, The$/i)) {
+                    artist = `The ${data.artist.get().replace(/, The$/i, '')}`;
+                }
+
+                const fullName = artist ? `${title} - ${artist}` : title;
+
                 document.title = fullName;
                 doc.projectionOverlayTitle.textContent = fullName;
-                doc.newSongInfoTitle.textContent = data.title.get();
-                doc.newSongInfoArtist.textContent = data.artist.get() ?? '';
+                doc.newSongInfoTitle.textContent = title;
+                doc.newSongInfoArtist.textContent = artist;
             } else {
                 document.title = 'Chord Projector';
                 doc.projectionOverlayTitle.textContent = '';
