@@ -146,16 +146,21 @@
             return createLink(href, title);
         }
 
-        function addBookmarklet(title, action) {
-            document.body.appendChild(createBookmarklet(title, action));
+        function append(element) {
+            if (element) {
+                document.body.appendChild(element);
+            }
             document.body.appendChild(document.createElement('br'));
         }
 
-        addBookmarklet('Copy UG chords', 'copy_chords');
-        addBookmarklet('Copy projector url for UG chords', 'copy_projector_url');
-        addBookmarklet('Project UG chords', 'open_projector');
-        addBookmarklet('Project UG chords in current tab', 'open_projector_in_place');
-        addBookmarklet('Offer for projection', 'offer_for_projection');
-        document.body.appendChild(createLink(projectChords('return_chord_projector_url'), 'Open blank chord projector'));
+        append(createBookmarklet('Copy Ultimate Guitar chords to clipboard', 'copy_chords'));
+        append(createBookmarklet('Copy Chord Projector URL for Ultimate Guitar chords', 'copy_projector_url'));
+        append();
+        append(createBookmarklet('Open Ultimate Guitar chords in Chord Projector', 'open_projector'));
+        append(createBookmarklet('Open Ultimate Guitar chords in Chord Projector (current tab)', 'open_projector_in_place'));
+        append();
+        append(createBookmarklet('Cast Ultimate Guitar chords directly', 'offer_for_projection'));
+        append();
+        append(createLink(projectChords('return_chord_projector_url'), 'Open blank chord projector'));
     </script>
 </body>
