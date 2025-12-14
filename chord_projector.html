@@ -47,19 +47,6 @@
             overflow: hidden; /* Prevents scrolling on the body */
         }
 
-        /* for testing fonts */
-        html, body {
-            /* Fonts generally available on windows  */
-            /* font-family: 'Consolas for Powerline', 'Consolas', 'Courier New', 'Adobe NotDef'; */
-
-            /* Fonts generally available on Mac */
-            /* font-family: 'Roboto Mono', Menlo, Monaco, 'Courier New', 'Andale Mono', monospace, 'STIX Two Math', 'Adobe NotDef'; */
-
-            /* font-family: 'Roboto Mono', Menlo, Monaco, 'Courier New', 'Andale Mono', monospace, 'Adobe NotDef'; */
-
-            /* font-family: 'Roboto Mono', 'Julia Mono Webfont', 'Adobe NotDef'; */
-        }
-
         body {
             display: flex;
             flex-direction: column;
@@ -2651,6 +2638,21 @@
                 offeredForProjection: localStorageAccessor('offeredForProjection')
             }
 
+            function getInstanceName() {
+                try {
+                    const existingWindowName = window.sessionStorage.getItem("instanceName");
+                    if (existingWindowName) {
+                        return existingWindowName;
+                    }
+
+                    const guid = generateGUID();
+                    window.sessionStorage.setItem("instanceName", guid);
+                    return guid;
+                } catch {
+                    return generateGUID();
+                }
+            }
+
             function showNewSongModal() {
                 if (newSongModalTimeoutHandle) {
                     clearTimeout(newSongModalTimeoutHandle);
@@ -2688,7 +2690,7 @@
 
             return {
                 isMainInstance: () => {
-                    return window.name == local.mainInstance.get();
+                    return getInstanceName() == local.mainInstance.get();
                 },
 
                 exitCastMode: function() {
@@ -2706,17 +2708,13 @@
                 },
 
                 initialize: function() {
-                    if (!window.name) {
-                        window.name = generateGUID();
-                    }
-
                     data.castMode.setElementValueSilently(this.isMainInstance());
                     this.applyVisuals();
                 },
 
                 mainInstanceChanged: function(value) {
                     if (value) {
-                        local.mainInstance.set(window.name);
+                        local.mainInstance.set(getInstanceName());
                     } else if (this.isMainInstance()) {
                         this.exitCastMode();
                     }

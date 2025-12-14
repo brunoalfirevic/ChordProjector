@@ -37,7 +37,7 @@
             } else if (action === 'open_projector') {
                 openWindow(constructChordProjectorUrl(text, title, artist));
             } else if (action === 'open_projector_in_place') {
-                location.href = constructChordProjectorUrl(text, title, artist);
+                openHere(constructChordProjectorUrl(text, title, artist));
             } else if (action === 'offer_for_projection') {
                 openWindow(constructOpenerUrl(text, title, artist));
             } else {
@@ -56,6 +56,11 @@
             }
 
             function constructBaseUrl() {
+                const override = window.localStorage?.getItem('chordProjector.baseUrlOverride');
+                if (override) {
+                    return override;
+                }
+
                 return 'https://brunoalfirevic.github.io/ChordProjector';
             }
 
@@ -66,10 +71,11 @@
             }
 
             function openWindow(url) {
-                const openedWindow = window.open(url, '_blank');
-                if (openedWindow) {
-                    openedWindow.focus();
-                }
+                const openedWindow = window.open(url, '_blank', 'noopener');
+            }
+
+            function openHere(url) {
+                location.href = url;
             }
 
             function copyToClipboard(text) {
