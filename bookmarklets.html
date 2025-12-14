@@ -7,13 +7,13 @@
 
     <script id="projectChordsFunction">
         function projectChords(action) {
-            if (action === 'return_chord_projector_url') {
-                return constructChordProjectorUrl();
-            }
-
             const {text, title, artist} = extractContent() ?? {};
 
             switch(action) {
+                case 'return_blank_chord_projector_url':
+                    return constructChordProjectorUrl();
+                    break;
+
                 case 'copy_chords':
                     copyToClipboard(text);
                     break;
@@ -28,7 +28,7 @@
 
                 case 'offer_for_projection':
                     if (text) {
-                        openWindow(constructOpenerUrl(text, title, artist));
+                        openWindow(constructCasterUrl(text, title, artist));
                     } else {
                         alert("Could not find text on the page to cast.");
                     }
@@ -59,7 +59,7 @@
                 const title = queryText('main h1');
                 const artist = title.startsWith("Official ") ? queryText('main h1 + span') : queryText('main h1 + span + span');
                 return {
-                    text,
+                    text: text.replace(/\nX$/, ''),
                     title: title.replace(/ Chords( & Tabs)?$/, '').replace(/^Official /, ''),
                     artist
                 };
@@ -84,8 +84,8 @@
                 }
             }
 
-            function constructOpenerUrl(text, title, artist) {
-                const url = constructBaseUrl() +  '/opener.html';
+            function constructCasterUrl(text, title, artist) {
+                const url = constructBaseUrl() +  '/caster.html';
                 return appendParams(url, text, title, artist);
             }
 
@@ -232,6 +232,6 @@
         append();
         append(createBookmarklet('Cast chords directly', 'offer_for_projection'));
         append();
-        append(createLink(projectChords('return_chord_projector_url'), 'Open blank Chord Projector'));
+        append(createLink(projectChords('return_blank_chord_projector_url'), 'Open blank Chord Projector'));
     </script>
 </body>
