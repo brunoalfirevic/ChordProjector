@@ -11,38 +11,77 @@
                 return constructChordProjectorUrl();
             }
 
-            const selector = 'section code pre';
-            const element = document.querySelector(selector);
+            const {text, title, artist} = extractContent() ?? {};
 
-            if (!element) {
-                console.error('Element not found with selector:', selector);
-                return Promise.reject('Element not found');
+            switch(action) {
+                case 'copy_chords':
+                    copyToClipboard(text);
+                    break;
+
+                case 'open_projector':
+                    openWindow(constructChordProjectorUrl(text, title, artist));
+                    break;
+
+                case 'open_projector_in_place':
+                    openHere(constructChordProjectorUrl(text, title, artist));
+                    break;
+
+                case 'offer_for_projection':
+                    if (text) {
+                        openWindow(constructOpenerUrl(text, title, artist));
+                    } else {
+                        alert("Could not find text on the page to cast.");
+                    }
+                    break;
+
+               default:
+                    console.error('Invalid action', action);
             }
 
-            const text = element.textContent.replace(/\nX$/, '');
-            let title = document.querySelector('main h1')?.textContent?.trim()?.replace(/ Chords( & Tabs)?$/, '') ?? '';
-            let artist;
+            function extractContent() {
+                const mappers = {
+                    'ultimate-guitar.com': extractUltimateGuitarContent,
+                    '2akordi.net': extract2AkordiNetContent,
+                    'pesmarica.rs': extractPesmaricaContent,
+                };
 
-            if (title.startsWith("Official ")) {
-                title = title.replace(/^Official /, '');
-                artist = document.querySelector('main h1 + span')?.textContent?.trim();
-            } else {
-                artist = document.querySelector('main h1 + span + span')?.textContent?.trim();
+                for (const [url, mapper] of Object.entries(mappers)) {
+                    if (location.hostname === url || location.hostname?.endsWith('.' + url)) {
+                        return mapper();
+                    }
+                }
+
+                return undefined;
             }
 
-            if (action === 'copy_chords') {
-                copyToClipboard(text);
-            } else if (action === 'copy_projector_url') {
-                copyToClipboard(constructChordProjectorUrl(text, title));
-            } else if (action === 'open_projector') {
-                openWindow(constructChordProjectorUrl(text, title, artist));
-            } else if (action === 'open_projector_in_place') {
-                openHere(constructChordProjectorUrl(text, title, artist));
-            } else if (action === 'offer_for_projection') {
-                openWindow(constructOpenerUrl(text, title, artist));
-            } else {
-                console.log('Invalid action');
-                return Promise.reject('Invalid action');
+            function extractUltimateGuitarContent() {
+                const text = queryText('section code pre');
+                const title = queryText('main h1');
+                const artist = title.startsWith("Official ") ? queryText('main h1 + span') : queryText('main h1 + span + span');
+                return {
+                    text,
+                    title: title.replace(/ Chords( & Tabs)?$/, '').replace(/^Official /, ''),
+                    artist
+                };
+            }
+
+            function extract2AkordiNetContent() {
+                const text = queryText('#container pre');
+                const fullName = queryText('.header h3');
+                const [artist, title] = split(fullName, "::", " - ");
+                return {
+                    text,
+                    title: artist && title ? title : fullName,
+                    artist: artist && title ? artist : ''
+                }
+            }
+
+            function extractPesmaricaContent() {
+                return {
+                    text: queryText('main pre'),
+                    title: queryText('main h1'),
+                    artist: queryText('main h2')
+                }
             }
 
             function constructOpenerUrl(text, title, artist) {
@@ -52,13 +91,16 @@
 
             function constructChordProjectorUrl(text, title, artist) {
                 const url = constructBaseUrl() +  '/chord_projector.html';
-                return appendParams(url, text, title, artist);
+                return text ? appendParams(url, text, title, artist) : url;
             }
 
             function constructBaseUrl() {
-                const override = window.localStorage?.getItem('chordProjector.baseUrlOverride');
-                if (override) {
-                    return override;
+                try {
+                    const override = window.localStorage?.getItem('chordProjector.baseUrlOverride');
+                    if (override) {
+                        return override;
+                    }
+                } catch {
                 }
 
                 return 'https://brunoalfirevic.github.io/ChordProjector';
@@ -78,7 +120,31 @@
                 location.href = url;
             }
 
+            function queryText(selector) {
+                const element = document.querySelector(selector);
+
+                if (!element) {
+                    console.warn('Element not found with selector:', selector);
+                }
+
+                return element?.textContent?.trim() ?? '';
+            }
+
+            function split(text, ...splitters) {
+                for (const splitter of splitters) {
+                    if (text.includes(splitter)) {
+                        return text.split(splitter).map(v => v.trim());
+                    }
+                }
+
+                return [text];
+            }
+
             function copyToClipboard(text) {
+                if (!text) {
+                    return;
+                }
+
                 /* Try to use the Clipboard API first (modern browsers) */
                 if (navigator.clipboard) {
                     return navigator.clipboard.writeText(text)
@@ -126,7 +192,7 @@
                     try {
                         success = document.execCommand('copy');
                     } catch (err) {
-                        console.error('Fallback: Could not copy text: ', err);
+                        console.error('Clipboard Copy Fallback: Could not copy text: ', err);
                     }
 
                     /* Clean up */
@@ -159,14 +225,13 @@
             document.body.appendChild(document.createElement('br'));
         }
 
-        append(createBookmarklet('Copy Ultimate Guitar chords to clipboard', 'copy_chords'));
-        append(createBookmarklet('Copy Chord Projector URL for Ultimate Guitar chords', 'copy_projector_url'));
+        append(createBookmarklet('Copy chords to clipboard', 'copy_chords'));
         append();
-        append(createBookmarklet('Open Ultimate Guitar chords in Chord Projector', 'open_projector'));
-        append(createBookmarklet('Open Ultimate Guitar chords in Chord Projector (current tab)', 'open_projector_in_place'));
+        append(createBookmarklet('Show in Chord Projector', 'open_projector'));
+        append(createBookmarklet('Show in Chord Projector (stay in same tab)', 'open_projector_in_place'));
         append();
-        append(createBookmarklet('Cast Ultimate Guitar chords directly', 'offer_for_projection'));
+        append(createBookmarklet('Cast chords directly', 'offer_for_projection'));
         append();
-        append(createLink(projectChords('return_chord_projector_url'), 'Open blank chord projector'));
+        append(createLink(projectChords('return_chord_projector_url'), 'Open blank Chord Projector'));
     </script>
 </body>
