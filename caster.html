@@ -22,7 +22,7 @@
     <script id="utilities">
         function getHashParam(param) {
             if (!window.location.hash) {
-                return null;
+                return undefined;
             }
 
             const hashParams = new URLSearchParams(window.location.hash.substring(1));

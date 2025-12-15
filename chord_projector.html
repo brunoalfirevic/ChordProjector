@@ -920,7 +920,7 @@
 
         function getHashParam(param) {
             if (!window.location.hash) {
-                return null;
+                return undefined;
             }
 
             const hashParams = new URLSearchParams(window.location.hash.substring(1));
@@ -928,10 +928,11 @@
         }
 
         function setHash(value) {
+            const hash = '#' + (value ?? '');
             if (history.replaceState) {
-                history.replaceState(undefined, undefined, '#' + (value ?? ''));
+                history.replaceState(undefined, undefined, hash);
             } else {
-                window.location.replace('#' + (value ?? ''));
+                window.location.replace(hash);
             }
         }
 
@@ -970,7 +971,7 @@
 
         function writeCookie(name, value, options = {}) {
             const {
-                daysToExpire = null,
+                daysToExpire = undefined,
                 path = '/',
                 domain = '',
                 secure = false,
@@ -979,7 +980,7 @@
 
             let cookieString = `${encodeURIComponent(name)}=${encodeURIComponent(value)}`;
 
-            if (daysToExpire !== null) {
+            if (daysToExpire != undefined) {
                 const expirationDate = new Date();
                 expirationDate.setDate(expirationDate.getDate() + daysToExpire);
                 cookieString += `; expires=${expirationDate.toUTCString()}`;
