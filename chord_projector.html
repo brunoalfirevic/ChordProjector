@@ -927,22 +927,23 @@
             return hashParams.get(param);
         }
 
-        function setHashParam(param, value, addHistoryEntry) {
+        function setHash(value) {
+            if (history.replaceState) {
+                history.replaceState(undefined, undefined, '#' + (value ?? ''));
+            } else {
+                window.location.replace('#' + (value ?? ''));
+            }
+        }
+
+        function setHashParam(param, value) {
             const hashParams = new URLSearchParams(window.location.hash && window.location.hash.substring(1) || '');
             if (value == undefined) {
                 hashParams.delete(param);
             } else {
                 hashParams.set(param, value);
             }
-            if (addHistoryEntry) {
-                window.location.hash = '#' + hashParams.toString();
-            } else {
-                if (history.replaceState) {
-                    history.replaceState(undefined, undefined, '#' + hashParams.toString());
-                } else {
-                    window.location.replace('#' + hashParams.toString());
-                }
-            }
+
+            setHash(hashParams.toString());
         }
 
         function readCookie(name)  {
@@ -1088,7 +1089,7 @@
                 return styleValue ? parseFloat(styleValue) : 0;
             }
 
-            const { includeMargin = true, includePadding = true } = options;
+            const {includeMargin = true, includePadding = true} = options;
 
             const boundingRect = element.getBoundingClientRect();
             const style = window.getComputedStyle(element);
@@ -1344,7 +1345,7 @@
         }
 
         function bindData(bindings, onChange, parse, stringify) {
-            let { el, hash, cookie } = bindings;
+            let {el, hash, cookie, followHashDeletion} = bindings;
 
             const identifier = el && (el.name || el.id);
             if (hash === true && identifier) {
@@ -1394,8 +1395,8 @@
                     }
                 }
             } else {
-                parse = parse ?? (value => value);
-                stringify = stringify ?? (value => value)
+                parse = parse ?? (value => value ?? '');
+                stringify = stringify ?? (value => value ?? '');
             }
 
             let currentValue = parse('');
@@ -1403,7 +1404,7 @@
             function loadFromUrl() {
                 const value = getHashParam(hash);
 
-                if (value != undefined) {
+                if (followHashDeletion || value != undefined) {
                     const parsedValue = parse(value);
                     if (parsedValue !== currentValue) {
                         currentValue = parsedValue;
@@ -2609,51 +2610,10 @@
             }
         }
 
-        const fullscreen = {
-            isFullScreen: () => document.body.classList.contains('fullscreen'),
-
-            enable: value => {
-                applyClass(document.body, value, 'fullscreen');
-                redraw(value);
-            },
-
-            withTemporaryFullscreen: function(action) {
-                const wasFullscreen = this.isFullScreen();
-                document.body.classList.add('fullscreen');
-
-                try {
-                    action();
-                } finally {
-                    applyClass(document.body, wasFullscreen, 'fullscreen');
-                }
-            }
-        }
-
-        const instanceManager = (function() {
-            let projectionOfferIntervalHandle = undefined;
+        const showNewSongModal = (function() {
             let newSongModalTimeoutHandle = undefined;
 
-            const local = {
-                mainInstance: localStorageAccessor('instances.mainInstance'),
-                offeredForProjection: localStorageAccessor('offeredForProjection')
-            }
-
-            function getInstanceName() {
-                try {
-                    const existingWindowName = window.sessionStorage.getItem("instanceName");
-                    if (existingWindowName) {
-                        return existingWindowName;
-                    }
-
-                    const guid = generateGUID();
-                    window.sessionStorage.setItem("instanceName", guid);
-                    return guid;
-                } catch {
-                    return generateGUID();
-                }
-            }
-
-            function showNewSongModal() {
+            return function() {
                 if (newSongModalTimeoutHandle) {
                     clearTimeout(newSongModalTimeoutHandle);
                 }
@@ -2677,6 +2637,50 @@
                         });
                     });
                 }, 700);
+            }
+        })();
+
+        const fullscreen = {
+            isFullScreen: () => document.body.classList.contains('fullscreen'),
+
+            enable: value => {
+                applyClass(document.body, value, 'fullscreen');
+                redraw(value);
+            },
+
+            withTemporaryFullscreen: function(action) {
+                const wasFullscreen = this.isFullScreen();
+                document.body.classList.add('fullscreen');
+
+                try {
+                    action();
+                } finally {
+                    applyClass(document.body, wasFullscreen, 'fullscreen');
+                }
+            }
+        }
+
+        const instanceManager = (function() {
+            let projectionOfferIntervalHandle = undefined;
+
+            const local = {
+                mainInstance: localStorageAccessor('instances.mainInstance'),
+                offeredForProjection: localStorageAccessor('offeredForProjection')
+            }
+
+            function getInstanceName() {
+                try {
+                    const existingWindowName = window.sessionStorage.getItem("instanceName");
+                    if (existingWindowName) {
+                        return existingWindowName;
+                    }
+
+                    const guid = generateGUID();
+                    window.sessionStorage.setItem("instanceName", guid);
+                    return guid;
+                } catch {
+                    return generateGUID();
+                }
             }
 
             function reinitializeData(dataBinding, value, defaultValue) {
@@ -2737,22 +2741,18 @@
                             return;
                         }
 
-                        try {
-                            setHashParam('dummyParamForHistoryEntry', generateGUID(), true);
+                        history.pushState(undefined, undefined);
 
-                            reinitializeData(data.transpose, offeredForProjection.transpose, 0);
-                            reinitializeData(data.capo, offeredForProjection.capo, 0);
-                            reinitializeData(data.capoAsWritten, offeredForProjection.capoAsWritten, 0);
-                            reinitializeData(data.useNashvilleNotation, offeredForProjection.useNashvilleNotation, false);
+                        reinitializeData(data.transpose, offeredForProjection.transpose, 0);
+                        reinitializeData(data.capo, offeredForProjection.capo, 0);
+                        reinitializeData(data.capoAsWritten, offeredForProjection.capoAsWritten, 0);
+                        reinitializeData(data.useNashvilleNotation, offeredForProjection.useNashvilleNotation, false);
 
-                            data.fontSize.clearHashParam();
+                        data.fontSize.clearHashParam();
 
-                            data.text.set(offeredForProjection.text, {refit: true});
-                            data.title.set(offeredForProjection.title);
-                            data.artist.set(offeredForProjection.artist);
-                        } finally {
-                            setHashParam('dummyParamForHistoryEntry', undefined);
-                        }
+                        data.text.set(offeredForProjection.text, {refit: true});
+                        data.title.set(offeredForProjection.title);
+                        data.artist.set(offeredForProjection.artist);
 
                         fullscreen.enable(true);
 
@@ -2807,12 +2807,12 @@
         document.querySelectorAll('[id]').forEach(element => doc[element.id] = element);
 
         const data = {
-            text: bindData({el: doc.text, hash: true}, (_, previousValue, additionalData) => {
+            text: bindData({el: doc.text, hash: true, followHashDeletion: true}, (_, previousValue, additionalData) => {
                 inferCapo();
                 instanceManager.applyVisuals();
                 redraw(!previousValue || additionalData?.refit);
             }),
-            fontSize: bindData({el: doc.fontSize, hash: true}, () => redraw()),
+            fontSize: bindData({el: doc.fontSize, hash: true, followHashDeletion: true}, value => redraw(!value)),
             transpose: bindData({el: doc.transpose, hash: true}, () => redraw()),
             capo: bindData({el: doc.capo, hash: true}, () => redraw()),
             capoAsWritten: bindData({el: doc.capoAsWritten, hash: true}, () => redraw()),
@@ -2825,15 +2825,15 @@
             useAccidentalsFromKey: bindData({el: doc.useAccidentalsFromKey, hash: true, cookie: true}, () => redraw()),
             prettyTablatures: bindData({el: doc.prettyTablatures, hash: true, cookie: true}, () => redraw()),
             originalNoteNames: bindData({el: doc.originalNoteNames, hash: true, cookie: true}, () => redraw()),
-            castMode: bindData({el: doc.castMode, hash: false, cookie: false}, (value, _, __, event) => {
+            castMode: bindData({el: doc.castMode}, (value, _, __, event) => {
                 if (!event || value || !instanceManager.isMainInstance() || confirm("Are you sure you want to exit casting mode?")) {
                     instanceManager.mainInstanceChanged(value);
                 } else {
                     event.preventDefault();
                 }
             }),
-            title: bindData({hash: 'title'}, () => updateTitle()),
-            artist: bindData({hash: 'artist'}, () => updateTitle()),
+            title: bindData({hash: 'title', followHashDeletion: true}, () => updateTitle()),
+            artist: bindData({hash: 'artist', followHashDeletion: true}, () => updateTitle()),
 
             getParsedLines: (function() {
                 let cacheKey = undefined;
@@ -2971,14 +2971,21 @@
     </script>
 
     <script id="main">
+        if (!window.location.hash && !window.location.href.endsWith('#')) {
+            setHash();
+        }
+
         updateTitle();
+        instanceManager.initialize();
 
         if (data.text.get()) {
             inferCapo();
             fullscreen.enable(true); // this will also redraw
-        }
 
-        instanceManager.initialize();
+            if (instanceManager.isMainInstance()) {
+                showNewSongModal();
+            }
+        }
     </script>
 </body>
 </html>
