@@ -1675,7 +1675,7 @@
                 tablature: rgx({flags: 'i'},
                                /^(?<pre>\s*)/,
                                rgx('tablature',
-                                   noteNames, rgx.of('|'), rgx.chars({repeat: {min: 4}}, '-─|/()^~*0123456789hspxv'), rgx.of('|')),
+                                   noteNames, rgx.of('|'), rgx.chars({repeat: {min: 4}}, '-─|/\\()^~*0123456789hspxvb'), rgx.of('|')),
                                /$|(?<post>\s.*)$/),
                 tablatureTiming: rgx({flags: 'u'},
                                      /^(?<pre>\s*)/,
