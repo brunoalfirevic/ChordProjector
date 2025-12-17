@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="en" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Songbook</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto&family=Roboto+Mono:wght@100..700&display=block" rel="stylesheet">
+
+    <style type="text/tailwindcss">
+        @theme {
+            --color-smurf: rgb(72, 145, 219);
+            --color-mediterranean-blue: rgb(46, 122, 199);
+        }
+    </style>
+
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/public-google-sheets-parser@latest"></script>
+
+    <link href="https://unpkg.com/floating-vue@5.2.2/dist/style.css" rel="stylesheet">
+    <style>
+        .v-popper--theme-tooltip .v-popper__inner {
+            font-size: 0.8rem;
+            font-weight: 500;
+            background-color: rgba(63, 63, 70, 0.95);
+        }
+
+        .v-popper--theme-tooltip .v-popper__arrow-outer {
+            border-color: rgba(63, 63, 70, 0.95);
+        }
+    </style>
+
+    <script type="importmap">
+        {
+            "imports": {
+                "vue": "https://unpkg.com/vue@3/dist/vue.esm-browser.prod.js",
+
+                "@floating-ui/utils/dom": "https://unpkg.com/@floating-ui/utils@0.2.10/dist/floating-ui.utils.dom.mjs",
+                "@floating-ui/utils": "https://unpkg.com/@floating-ui/utils@0.2.10/dist/floating-ui.utils.mjs",
+                "@floating-ui/core": "https://unpkg.com/@floating-ui/core@1.7.3/dist/floating-ui.core.mjs",
+                "@floating-ui/dom": "https://unpkg.com/@floating-ui/dom@1.7.4/dist/floating-ui.dom.mjs",
+                "floating-vue": "https://unpkg.com/floating-vue@5.2.2/dist/floating-vue.mjs",
+
+                "@fortawesome/fontawesome-svg-core": "https://unpkg.com/@fortawesome/fontawesome-svg-core/index.mjs",
+                "@fortawesome/free-solid-svg-icons": "https://unpkg.com/@fortawesome/free-solid-svg-icons/index.mjs",
+                "@fortawesome/free-regular-svg-icons": "https://unpkg.com/@fortawesome/free-regular-svg-icons/index.mjs",
+                "@fortawesome/free-brands-svg-icons": "https://unpkg.com/@fortawesome/free-brands-svg-icons/index.mjs",
+                "@fortawesome/vue-fontawesome": "https://unpkg.com/@fortawesome/vue-fontawesome/index.es.js"
+            }
+        }
+    </script>
+</head>
+
+<body class="h-full font-[Roboto] text-neutral-700">
+
+<script id="utilities">
+    function getHashParam(param) {
+        if (!window.location.hash) {
+            return undefined;
+        }
+
+        const hashParams = new URLSearchParams(window.location.hash.substring(1));
+        return hashParams.get(param);
+    }
+
+    function setHash(value) {
+        const hash = '#' + (value ?? '');
+        if (history.replaceState) {
+            history.replaceState(undefined, undefined, hash);
+        } else {
+            window.location.replace(hash);
+        }
+    }
+
+    function setHashParam(param, value) {
+        const hashParams = new URLSearchParams(window.location.hash && window.location.hash.substring(1) || '');
+        if (value == undefined) {
+            hashParams.delete(param);
+        } else {
+            hashParams.set(param, value);
+        }
+
+        setHash(hashParams.toString());
+    }
+
+    function localStorageAccessor(key) {
+        return {
+            get: () => window.localStorage.getItem(key),
+            set: value => window.localStorage.setItem(key, value),
+            remove: () => window.localStorage.removeItem(key),
+            exists: () => window.localStorage.getItem(key) != undefined
+        }
+    }
+
+    function compare(x, y) {
+        return x < y ? -1 :
+               x > y ? 1 :
+               0;
+    }
+
+    function matchAll(str, regex) {
+        if (str == undefined) {
+            return [];
+        }
+
+        regex = new RegExp(regex.source, regex.flags.includes("g") ? regex.flags : regex.flags + "g");
+        return Array.from(str.matchAll(regex));
+    }
+
+    function matchFirst(str, regex) {
+        const matches = matchAll(str, regex);
+        if (matches.length == 0) {
+            return undefined;
+        }
+
+        return matches[0];
+    }
+
+    function exportComponent(name, component) {
+        window.globalComponents ??= {};
+        component.template ??= '#' + name;
+        window.globalComponents[name] = component;
+    }
+
+    function discoverNoCodeComponents() {
+        const components = {};
+        document.querySelectorAll('[id][type="text/x-template"][x-no-code-component]')
+                .forEach(element => {
+                    const props = element.getAttribute('x-props');
+                    components[element.id] = {
+                        props: props ? eval?.(`"use strict";(${props})`) : undefined,
+                        template: '#' + element.id
+                    }
+                });
+        return components;
+    }
+
+    function isValidHttpUrl(str) {
+        if (!str) {
+            return false;
+        }
+
+        try {
+            const url = new URL(str);
+            return url.protocol === "http:" || url.protocol === "https:";
+        } catch {
+            return false;
+        }
+    }
+</script>
+
+<!-------------- Components --------------------->
+
+<script id="DataGrid" type="text/x-template">
+    <table v-if="sortedData.length" class="text-sm">
+        <thead>
+            <tr class="border-y border-neutral-200 divide-x">
+                <th v-for="column in columns"
+                    @click="sortBy(column)"
+                    class="whitespace-nowrap select-none pl-2 pr-4 py-1 border-neutral-200 overflow-hidden"
+                    :class="headerClass(column)">
+                    {{column.label}}
+
+                    <span :class="arrowClass(column)"
+                          class="inline-block align-middle ml-1 border-x-4 border-x-transparent border-y-neutral-700"></span>
+                </th>
+            </tr>
+        </thead>
+        <tbody>
+            <!-- hover:bg-stone-100" -->
+            <tr v-for="entry in sortedData" class="border-y border-neutral-200 hover:bg-smurf/7" :key="entry[keyColumn]">
+                <td v-for="column in columns" class="cursor-pointer pl-2 pr-4 py-1 whitespace-nowrap align-top" :class="cellClass(column)">
+                    <component v-if="column.type === 'action'" :is="column.component" v-bind="column.bindings(entry)"/>
+                    <div v-else-if="column.size !== 'fit'" class="relative">
+                        <div class="absolute overflow-hidden text-ellipsis w-full">{{entry[column.name]}}</div>
+                    </div>
+                    <span v-else>{{entry[column.name]}}</span>
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</script>
+
+<script type="module">
+    exportComponent('DataGrid', {
+        props: {
+            columns: Array,
+            data: Array
+        },
+        data() {
+            return {
+                sortName: '',
+                sortOrder: 1
+            }
+        },
+        computed: {
+            sortedData() {
+                let data = this.data
+                if (this.sortName) {
+                    data = data.slice().sort((a, b) => compare(a[this.sortName], b[this.sortName]) * this.sortOrder);
+                }
+
+                return data;
+            },
+            keyColumn() {
+                return this.columns.filter(c => c.key)[0]?.name;
+            }
+        },
+        methods: {
+            sortBy(column) {
+                if (column.type === 'action') {
+                    return;
+                }
+
+                if (column.name === this.sortName) {
+                    this.sortOrder = this.sortOrder * -1;
+                } else {
+                    this.sortName = column.name;
+                    this.sortOrder = 1;
+                }
+            },
+            headerClass(column) {
+                return [
+                    column.type === 'number' ? 'text-right' : 'text-left',
+                    {'w-0 min-w-14': column.size === 'fit'},
+                    {'w-full': column.size !== 'fit'},
+                    {'cursor-pointer': column.type !== 'action'}
+                ];
+            },
+            cellClass(column) {
+                return [
+                    column.type === 'number' ? 'text-right' : 'text-left',
+                    {'w-0 min-w-14': column.size === 'fit'},
+                    {'w-full': column.size !== 'fit'},
+                    {'min-w-0': column.size !== 'fit'}
+                ];
+            },
+            arrowClass(column) {
+                if (this.sortName !== column.name) {
+                    return 'invisible';
+                }
+
+                return this.sortOrder > 0 ? 'border-b-4' : 'border-t-4'
+            }
+        }
+    });
+</script>
+
+<script id="NavigationItem" type="text/x-template" x-no-code-component x-props="{text: String, icon: String, selected: Boolean}">
+    <div class="cursor-pointer m-1 px-4 py-2 rounded-3xl min-w-56 text-sm" :class="{'text-mediterranean-blue': selected, 'bg-smurf/10': selected}">
+        <font-awesome-icon class="mr-4" :class="{'text-neutral-500': !selected}" :icon="icon" size="xl" widthAuto />
+        {{text}}
+    </div>
+</script>
+
+<script id="SongGridActions" type="text/x-template">
+    <span class="inline-block w-10 ml-3">
+        <a v-if="openChordsUrl" v-tooltip="'Chord Projector'" :href="openChordsUrl" target="_blank">
+            <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-video" widthAuto />
+        </a>
+    </span>
+    <span class="inline-block w-10">
+        <a v-if="castDirectlyUrl" v-tooltip="'Cast Directly'" :href="castDirectlyUrl" target="_blank">
+            <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-location-crosshairs" widthAuto />
+        </a>
+    </span>
+    <span class="inline-block w-10">
+        <a v-if="ultimateGuitarUrl" v-tooltip="'Ultimate Guitar'" :href="ultimateGuitarUrl" target="_blank">
+            <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-guitar" widthAuto />
+        </a>
+    </span>
+</script>
+
+<script type="module">
+    exportComponent('SongGridActions', {
+        props: {
+            data: Object
+        },
+        computed: {
+            openChordsUrl() {
+                return this.data.Chords
+                    ? appendParams('chord_projector.html', this.data.Chords, this.data.Title, this.data.Artist)
+                    : undefined;
+            },
+            castDirectlyUrl() {
+                return this.data.Chords
+                    ? appendParams('caster.html', this.data.Chords, this.data.Title, this.data.Artist)
+                    : undefined;
+            },
+            ultimateGuitarUrl() {
+                return isValidHttpUrl(this.data['Ultimate Guitar Link'])
+                    ? this.data['Ultimate Guitar Link']
+                    : undefined;
+            }
+        }
+    });
+
+    function appendParams(url, text, title, artist) {
+        return url + '#text=' + encodeURIComponent(text) +
+                     (title ? '&title=' + encodeURIComponent(title) : '') +
+                     (artist ? '&artist=' + encodeURIComponent(artist) : '');
+    }
+</script>
+
+<script id="SongList" type="text/x-template" x-no-code-component
+        x-props="{columns: Array, data: Array, status: String, title: String}">
+
+    <div class="flex flex-col h-full">
+        <h3 class="p-2 text-lg">{{title}}</h3>
+
+        <data-grid v-if="status === 'fulfilled' && data.length" :data="data" :columns="columns" class="w-full flex-auto" />
+
+        <div v-else class="flex-auto place-content-center text-center text-lg border-t border-neutral-200">
+            <span v-if="status === 'pending'"><font-awesome-icon icon="fa-solid fa-spinner" /> Loading</span>
+            <span v-else-if="status === 'rejected' || !data.length">Error Loading Data</span>
+            <span v-if="status === 'fulfilled' && data.length">No items</span>
+        </div>
+
+        <div v-if="status === 'fulfilled' && data.length" class="h-16 flex-none"><!--Padding at the bottom--></div>
+    </div>
+</script>
+
+<script id="AppSettings" type="text/x-template" x-no-code-component x-props="{settings: Object}">
+    <h3 class="p-2 text-lg">Settings</h3>
+    <hr class="mx-1 h-px text-neutral-300">
+
+    <div class="p-2">
+        <label for="settings.googleSheetsDocumentId" class="block mb-2.5 text-sm">
+            Google sheets document ID or URL:
+        </label>
+        <input v-model.lazy.trim="settings.googleSheetsDocumentId"
+               id="settings.googleSheetsDocumentId" type="text" name="settings.googleSheetsDocumentId" placeholder="Document ID or URL"
+               class="block border border-neutral-400 focus:border-smurf focus-visible:outline-smurf text-sm rounded-xl w-full px-3 py-2.5" />
+
+        <div v-if="settings.googleSheetsDocumentId" class="mt-4">
+            <a :href="settings.getGoogleSheetsDocumentUrl()" target="_blank" class="text-mediterranean-blue hover:underline">
+                Open data source sheet
+            </a>
+        </div>
+    </div>
+</script>
+
+<script id="App" type="text/x-template">
+    <div class="h-full flex flex-col">
+        <header class="h-14 flex-none content-center px-6 bg-smurf text-white">
+            <h3 class="text-xl"><a href="">Songbook</a></h3>
+        </header>
+        <div class="flex flex-row flex-auto">
+            <nav class="border-r border-neutral-200 flex-none">
+                <navigation-item v-if="data"
+                                    text="Songs" icon="fa-solid fa-music"
+                                    :selected="selectedPage === 'songs'" @click="selectedPage = 'songs'"/>
+                <navigation-item v-if="data"
+                                    text="Work-in-progress" icon="fa-solid fa-icons"
+                                    :selected="selectedPage === 'workInProgress'" @click="selectedPage = 'workInProgress'"/>
+                <hr class="mx-3 h-px text-neutral-300">
+                <navigation-item text="Settings" icon="fa-solid fa-gears"
+                                    :selected="selectedPage === 'settings'" @click="selectedPage = 'settings'"/>
+            </nav>
+            <main class="flex-auto">
+                <song-list v-if="selectedPage === 'songs'" :columns="columns.songs" :data="data.songs" :status="data.status" title="Songs" />
+                <song-list v-if="selectedPage === 'workInProgress'" :columns="columns.workInProgress" :data="data.workInProgress" :status="data.status" title="Work-in-progress" />
+                <app-settings v-if="selectedPage === 'settings'" :settings="settings" />
+            </main>
+        </div>
+    </div>
+</script>
+
+<script type="module">
+    const local = {
+        googleSheetsDocumentId: localStorageAccessor('songbook.googleSheetsDocumentId')
+    };
+
+    if (getHashParam('googleSheetsDocumentId')) {
+        local.googleSheetsDocumentId.set(getHashParam('googleSheetsDocumentId'));
+        setHashParam('googleSheetsDocumentId', undefined);
+    }
+
+    exportComponent('App', {
+        data() {
+            return {
+                columns: {
+                    songs: [
+                        {name: '$rowNumber', label: '#', type: 'number', key: true, size: 'fit'},
+                        {name: 'Artist', label: 'Artist', type: 'text', size: 'fit'},
+                        {name: 'Title', label: 'Title', type: 'text', size: 'fit'},
+                        {component: 'SongGridActions', bindings: data => ({data}), type: 'action'}
+                    ],
+                    workInProgress: [
+                        {name: '$rowNumber', label: '#', type: 'number', key: true, size: 'fit'},
+                        {name: 'Artist', label: 'Artist', type: 'text', size: 'fit'},
+                        {name: 'Title', label: 'Title', type: 'text', size: 'fit'},
+                        {component: 'SongGridActions', bindings: data => ({data}), type: 'action', size: 'fit'},
+                        {name: 'Note', label: 'Note', type: 'text'}
+                    ]
+                },
+                data: null,
+                selectedPage: 'songs',
+                settings: {
+                    googleSheetsDocumentId: local.googleSheetsDocumentId.get(),
+                    getGoogleSheetsDocumentUrl: function() {
+                        if (!this.googleSheetsDocumentId) {
+                            return '';
+                        }
+
+                        const id = extractDocumentId(this.googleSheetsDocumentId);
+                        return `https://docs.google.com/spreadsheets/d/${id}`;
+                    }
+                }
+            }
+        },
+        watch: {
+            'settings.googleSheetsDocumentId': {
+                handler(documentId) {
+                    local.googleSheetsDocumentId.set(documentId);
+                    if (documentId) {
+                        this.data = {status: 'pending'};
+                        querySheets(extractDocumentId(documentId), ['', 'Work-in-progress']).then(
+                             data => this.data = {status: 'fulfilled', songs: data[0], workInProgress: data[1]},
+                             exception => this.data = {status: 'rejected', exception});
+                    } else {
+                        this.selectedPage = 'settings';
+                        this.data = null;
+                    }
+                },
+                immediate: true
+            }
+        }
+    });
+
+    function extractDocumentId(urlOrDocumentId) {
+        if (!urlOrDocumentId) {
+            return undefined;
+        }
+
+        urlOrDocumentId = urlOrDocumentId.trim();
+
+        const regex = /^(https:\/\/)?docs\.google\.com\/spreadsheets\/d\/(?<id>[^\/\?]+).*$/gi;
+        const match = matchFirst(urlOrDocumentId, regex);
+        return match?.groups?.id ?? urlOrDocumentId;
+    }
+
+    function querySheets(documentId, sheetNames) {
+        sheetNames ??= ['']
+
+        const promises = sheetNames.map(sheetName => new PublicGoogleSheetsParser(documentId, sheetName ? {sheetName} : undefined)
+                                                            .parse()
+                                                            .then(data => {
+                                                                data.forEach((v, i) => v.$rowNumber = i + 1);
+                                                                return data;
+                                                            }));
+        return Promise.all(promises);
+    }
+</script>
+
+<!-------------- Initialize application --------------------->
+
+<script id="setupFontAwesome" type="module">
+    /* add fontawesome core */
+    import { library } from '@fortawesome/fontawesome-svg-core'
+
+    /* import all the icons in Free Solid, Free Regular, and Brands styles */
+    import { fas } from '@fortawesome/free-solid-svg-icons'
+    import { far } from '@fortawesome/free-regular-svg-icons'
+    import { fab } from '@fortawesome/free-brands-svg-icons'
+
+    library.add(fas, far, fab);
+</script>
+
+<script id="main" type="module">
+    import { createApp } from 'vue'
+    import { FontAwesomeIcon } from '@fortawesome/vue-fontawesome'
+    import FloatingVue from 'floating-vue'
+
+    const app = createApp({template: '<App />'});
+
+    app.use(FloatingVue, {distance: 15, themes: {tooltip: {delay: {show: 0, hide: 0}}}});
+
+    const components = {
+        FontAwesomeIcon,
+        ...discoverNoCodeComponents(),
+        ...window.globalComponents,
+    };
+
+    for (const [name, component] of Object.entries(components)) {
+        app.component(name, component);
+    }
+
+    const appElement = document.createElement('div');
+    appElement.classList.add('h-full');
+    document.body.appendChild(appElement);
+    app.mount(appElement);
+</script>
+
+</body>
