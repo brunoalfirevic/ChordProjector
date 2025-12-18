@@ -53,14 +53,10 @@
             }
         }
 
-        function constructChordProjectorUrl(text, title, artist) {
-            return appendParams('chord_projector.html', text, title, artist);
-        }
-
-        function appendParams(url, text, title, artist) {
+        function appendChordProjectorParams(url, text, title, artist) {
             return url + (text ? '#text=' + encodeURIComponent(text) : '') +
-                         (title ? '&title=' + encodeURIComponent(title) : '') +
-                         (artist ? '&artist=' + encodeURIComponent(artist) : '');
+                         (text && title ? '&title=' + encodeURIComponent(title) : '') +
+                         (text && artist ? '&artist=' + encodeURIComponent(artist) : '');
         }
     </script>
 
@@ -69,35 +65,48 @@
         document.querySelectorAll('[id]').forEach(element => doc[element.id] = element);
 
         const local = {
-            offeredForProjection: localStorageAccessor("offeredForProjection")
+            offeredForProjection: localStorageAccessor("offeredForProjection"),
+            mainInstance: localStorageAccessor('instances.mainInstance')
         };
     </script>
 
     <script id="main">
+        const openerInstanceName = window.sessionStorage.getItem("instanceName");
+        window.sessionStorage.removeItem("instanceName");
+
         const text = getHashParam('text');
         if (text) {
             const title = getHashParam('title');
             const artist = getHashParam('artist');
+            const chordProjectorUrl = appendChordProjectorParams('chord_projector.html', text, title, artist);
 
-            local.offeredForProjection.set(JSON.stringify({
-                text,
-                title,
-                artist,
-                timestamp: Date.now()
-            }));
+            if (window.opener && openerInstanceName && openerInstanceName === local.mainInstance.get()) {
+                window.opener.location.href = chordProjectorUrl;
+                window.close();
+            } else if (!local.mainInstance.get()) {
+                doc.openChordProjectorSection.classList.remove('hidden');
+                doc.chordProjectorLink.href = chordProjectorUrl;
+            } else {
+                local.offeredForProjection.set(JSON.stringify({
+                    text,
+                    title,
+                    artist,
+                    timestamp: Date.now()
+                }));
 
-            repeatPeriodically(20, 20, count => {
-                if (!local.offeredForProjection.exists()) {
-                    window.close();
-                    return true;
-                }
+                repeatPeriodically(20, 20, count => {
+                    if (!local.offeredForProjection.exists()) {
+                        window.close();
+                        return true;
+                    }
 
-                if (count == 0) {
-                    doc.openChordProjectorSection.classList.remove('hidden');
-                    doc.chordProjectorLink.href = constructChordProjectorUrl(text, title, artist);
-                    local.offeredForProjection.remove();
-                }
-            });
+                    if (count == 0) {
+                        doc.openChordProjectorSection.classList.remove('hidden');
+                        doc.chordProjectorLink.href = chordProjectorUrl;
+                        local.offeredForProjection.remove();
+                    }
+                });
+            }
         }
     </script>
 </body>

@@ -19,11 +19,15 @@
                     break;
 
                 case 'open_projector':
-                    openWindow(constructChordProjectorUrl(text, title, artist));
+                    openWindow(constructChordProjectorUrl(text, title, artist), 'noopener');
                     break;
 
                 case 'open_projector_in_place':
                     openHere(constructChordProjectorUrl(text, title, artist));
+                    break;
+
+                case 'open_projector_smart':
+                    openWindow(constructSmartOpenerUrl(text, title, artist));
                     break;
 
                 case 'offer_for_projection':
@@ -86,12 +90,17 @@
 
             function constructCasterUrl(text, title, artist) {
                 const url = constructBaseUrl() +  '/caster.html';
-                return appendParams(url, text, title, artist);
+                return appendChordProjectorParams(url, text, title, artist);
+            }
+
+            function constructSmartOpenerUrl(text, title, artist) {
+                const url = constructBaseUrl() +  '/smart_opener.html';
+                return appendChordProjectorParams(url, text, title, artist);
             }
 
             function constructChordProjectorUrl(text, title, artist) {
                 const url = constructBaseUrl() +  '/chord_projector.html';
-                return text ? appendParams(url, text, title, artist) : url;
+                return appendChordProjectorParams(url, text, title, artist);
             }
 
             function constructBaseUrl() {
@@ -106,14 +115,14 @@
                 return 'https://brunoalfirevic.github.io/ChordProjector';
             }
 
-            function appendParams(url, text, title, artist) {
+            function appendChordProjectorParams(url, text, title, artist) {
                 return url + (text ? '#text=' + encodeURIComponent(text) : '') +
-                             (title ? '&title=' + encodeURIComponent(title) : '') +
-                             (artist ? '&artist=' + encodeURIComponent(artist) : '');
+                             (text && title ? '&title=' + encodeURIComponent(title) : '') +
+                             (text && artist ? '&artist=' + encodeURIComponent(artist) : '');
             }
 
-            function openWindow(url) {
-                const openedWindow = window.open(url, '_blank', 'noopener');
+            function openWindow(url, options) {
+                const openedWindow = window.open(url, '_blank', options);
             }
 
             function openHere(url) {
@@ -229,6 +238,7 @@
         append();
         append(createBookmarklet('Show in Chord Projector', 'open_projector'));
         append(createBookmarklet('Show in Chord Projector (stay in same tab)', 'open_projector_in_place'));
+        append(createBookmarklet('To Chord Projector', 'open_projector_smart'));
         append();
         append(createBookmarklet('Cast chords directly', 'offer_for_projection'));
         append();

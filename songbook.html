@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Songbook</title>
+    <link rel="icon" type="image/svg+xml" href="favicon-songbook.svg" id="favicon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Roboto&family=Roboto+Mono:wght@100..700&display=block" rel="stylesheet">
@@ -55,35 +56,6 @@
 <body class="h-full font-[Roboto] text-neutral-700">
 
 <script id="utilities">
-    function getHashParam(param) {
-        if (!window.location.hash) {
-            return undefined;
-        }
-
-        const hashParams = new URLSearchParams(window.location.hash.substring(1));
-        return hashParams.get(param);
-    }
-
-    function setHash(value) {
-        const hash = '#' + (value ?? '');
-        if (history.replaceState) {
-            history.replaceState(undefined, undefined, hash);
-        } else {
-            window.location.replace(hash);
-        }
-    }
-
-    function setHashParam(param, value) {
-        const hashParams = new URLSearchParams(window.location.hash && window.location.hash.substring(1) || '');
-        if (value == undefined) {
-            hashParams.delete(param);
-        } else {
-            hashParams.set(param, value);
-        }
-
-        setHash(hashParams.toString());
-    }
-
     function localStorageAccessor(key) {
         return {
             get: () => window.localStorage.getItem(key),
@@ -117,6 +89,34 @@
         return matches[0];
     }
 
+    function isValidHttpUrl(str) {
+        if (!str) {
+            return false;
+        }
+
+        try {
+            const url = new URL(str);
+            return url.protocol === "http:" || url.protocol === "https:";
+        } catch {
+            return false;
+        }
+    }
+
+    function repeatPeriodically(count, timeout, func) {
+        const intervalHandle = setInterval(() => {
+            count--;
+            try {
+                if (func(count) || count <= 0) {
+                    clearInterval(intervalHandle);
+                }
+            } catch {
+                clearInterval(intervalHandle);
+            }
+        }, timeout);
+
+        return intervalHandle;
+    }
+
     function exportComponent(name, component) {
         window.globalComponents ??= {};
         component.template ??= '#' + name;
@@ -134,19 +134,6 @@
                     }
                 });
         return components;
-    }
-
-    function isValidHttpUrl(str) {
-        if (!str) {
-            return false;
-        }
-
-        try {
-            const url = new URL(str);
-            return url.protocol === "http:" || url.protocol === "https:";
-        } catch {
-            return false;
-        }
     }
 </script>
 
@@ -168,14 +155,13 @@
             </tr>
         </thead>
         <tbody>
-            <!-- hover:bg-stone-100" -->
             <tr v-for="entry in sortedData" class="border-y border-neutral-200 hover:bg-smurf/7" :key="entry[keyColumn]">
                 <td v-for="column in columns" class="cursor-pointer pl-2 pr-4 py-1 whitespace-nowrap align-top" :class="cellClass(column)">
                     <component v-if="column.type === 'action'" :is="column.component" v-bind="column.bindings(entry)"/>
                     <div v-else-if="column.size !== 'fit'" class="relative">
                         <div class="absolute overflow-hidden text-ellipsis w-full">{{entry[column.name]}}</div>
                     </div>
-                    <span v-else>{{entry[column.name]}}</span>
+                    <span v-else>{{render(entry[column.name])}}</span>
                 </td>
             </tr>
         </tbody>
@@ -198,7 +184,7 @@
             sortedData() {
                 let data = this.data
                 if (this.sortName) {
-                    data = data.slice().sort((a, b) => compare(a[this.sortName], b[this.sortName]) * this.sortOrder);
+                    data = data.slice().sort((a, b) => compare(unThe(a[this.sortName]), unThe(b[this.sortName])) * this.sortOrder);
                 }
 
                 return data;
@@ -219,6 +205,9 @@
                     this.sortName = column.name;
                     this.sortOrder = 1;
                 }
+            },
+            render(value) {
+                return theify(value);
             },
             headerClass(column) {
                 return [
@@ -245,10 +234,29 @@
             }
         }
     });
+
+    function unThe(str) {
+        if ((typeof str === 'string' || str instanceof String) &&
+            (str.startsWith('The ') || str.startsWith('the '))) {
+            return str.substring(4) + ', ' + str.substring(0, 3);
+        }
+
+        return str;
+    }
+
+    function theify(str) {
+        if ((typeof str === 'string' || str instanceof String) &&
+            (str.endsWith(', The') || str.endsWith(', the'))) {
+            return str.slice(-3) + ' ' + str.slice(0, -5);
+        }
+
+        return str;
+    }
 </script>
 
 <script id="NavigationItem" type="text/x-template" x-no-code-component x-props="{text: String, icon: String, selected: Boolean}">
-    <div class="cursor-pointer m-1 px-4 py-2 rounded-3xl min-w-56 text-sm" :class="{'text-mediterranean-blue': selected, 'bg-smurf/10': selected}">
+    <div class="cursor-pointer m-1 px-4 py-2 rounded-3xl min-w-56 text-sm"
+         :class="{'text-mediterranean-blue bg-smurf/10': selected, 'hover:bg-neutral-50': !selected}">
         <font-awesome-icon class="mr-4" :class="{'text-neutral-500': !selected}" :icon="icon" size="xl" widthAuto />
         {{text}}
     </div>
@@ -256,23 +264,28 @@
 
 <script id="SongGridActions" type="text/x-template">
     <span class="inline-block w-10 ml-3">
-        <a v-if="openChordsUrl" v-tooltip="'Chord Projector'" :href="openChordsUrl" target="_blank">
+        <a v-if="openChordsUrl" v-tooltip="'Chord Projector'" :href="openChordsUrl" target="_blank" rel="noopener">
             <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-video" widthAuto />
         </a>
     </span>
     <span class="inline-block w-10">
-        <a v-if="castDirectlyUrl" v-tooltip="'Cast Directly'" :href="castDirectlyUrl" target="_blank">
-            <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-location-crosshairs" widthAuto />
-        </a>
+        <font-awesome-icon v-if="data.Chords" v-tooltip="'Cast Directly'" @click="castDirectly" class="text-neutral-500" icon="fa-solid fa-location-crosshairs" widthAuto />
     </span>
     <span class="inline-block w-10">
-        <a v-if="ultimateGuitarUrl" v-tooltip="'Ultimate Guitar'" :href="ultimateGuitarUrl" target="_blank">
+        <a v-if="ultimateGuitarUrl" v-tooltip="'Ultimate Guitar'" :href="ultimateGuitarUrl" target="_blank" rel="noopener noreferrer">
             <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-guitar" widthAuto />
         </a>
     </span>
 </script>
 
 <script type="module">
+    const local = {
+        offeredForProjection: localStorageAccessor("offeredForProjection"),
+        mainInstance: localStorageAccessor('instances.mainInstance')
+    };
+
+    let projectionOfferIntervalHandle;
+
     exportComponent('SongGridActions', {
         props: {
             data: Object
@@ -280,12 +293,12 @@
         computed: {
             openChordsUrl() {
                 return this.data.Chords
-                    ? appendParams('chord_projector.html', this.data.Chords, this.data.Title, this.data.Artist)
+                    ? appendChordProjectorParams('chord_projector.html', this.data.Chords, this.data.Title, this.data.Artist)
                     : undefined;
             },
             castDirectlyUrl() {
                 return this.data.Chords
-                    ? appendParams('caster.html', this.data.Chords, this.data.Title, this.data.Artist)
+                    ? appendChordProjectorParams('caster.html', this.data.Chords, this.data.Title, this.data.Artist)
                     : undefined;
             },
             ultimateGuitarUrl() {
@@ -293,13 +306,48 @@
                     ? this.data['Ultimate Guitar Link']
                     : undefined;
             }
+        },
+        methods: {
+            castDirectly() {
+                if (!this.data.Chords) {
+                    return;
+                }
+
+                if (projectionOfferIntervalHandle != undefined) {
+                    clearInterval(projectionOfferIntervalHandle);
+                }
+
+                if (window.sessionStorage.getItem("instanceName") &&
+                    window.sessionStorage.getItem("instanceName") === local.mainInstance.get()) {
+                    window.location.href = this.openChordsUrl;
+                    return;
+                }
+
+                local.offeredForProjection.set(JSON.stringify({
+                    text: this.data.Chords,
+                    title: this.data.Title,
+                    artist: this.data.Artist,
+                    timestamp: Date.now()
+                }));
+
+                projectionOfferIntervalHandle = repeatPeriodically(20, 20, count => {
+                    if (!local.offeredForProjection.exists()) {
+                        return true;
+                    }
+
+                    if (count == 0) {
+                        local.offeredForProjection.remove();
+                        window.open(this.castDirectlyUrl, '_blank', 'noopener')
+                    }
+                });
+            }
         }
     });
 
-    function appendParams(url, text, title, artist) {
-        return url + '#text=' + encodeURIComponent(text) +
-                     (title ? '&title=' + encodeURIComponent(title) : '') +
-                     (artist ? '&artist=' + encodeURIComponent(artist) : '');
+    function appendChordProjectorParams(url, text, title, artist) {
+        return url + (text ? '#text=' + encodeURIComponent(text) : '') +
+                     (text && title ? '&title=' + encodeURIComponent(title) : '') +
+                     (text && artist ? '&artist=' + encodeURIComponent(artist) : '');
     }
 </script>
 
@@ -329,42 +377,69 @@
         <label for="settings.googleSheetsDocumentId" class="block mb-2.5 text-sm">
             Google sheets document ID or URL:
         </label>
-        <input v-model.lazy.trim="settings.googleSheetsDocumentId"
+        <input v-model.trim="settings.googleSheetsDocumentId"
                id="settings.googleSheetsDocumentId" type="text" name="settings.googleSheetsDocumentId" placeholder="Document ID or URL"
                class="block border border-neutral-400 focus:border-smurf focus-visible:outline-smurf text-sm rounded-xl w-full px-3 py-2.5" />
-
         <div v-if="settings.googleSheetsDocumentId" class="mt-4">
             <a :href="settings.getGoogleSheetsDocumentUrl()" target="_blank" class="text-mediterranean-blue hover:underline">
-                Open data source sheet
+                Go to data source sheet <font-awesome-icon icon="fa-solid fa-arrow-up-right-from-square" size="sm" />
+            </a>
+        </div>
+        <div v-if="settings.googleSheetsDocumentId" class="mt-4">
+            <a :href="settings.getSongbookBookmarkLink()" target="_blank" class="text-mediterranean-blue hover:underline">
+                Bookmark link <font-awesome-icon icon="fa-solid fa-arrow-up-right-from-square" size="sm"/>
+            </a>
+        </div>
+        <div class="mt-4">
+            <a href="chord_projector.html" class="text-mediterranean-blue hover:underline">
+                Open blank Chord Projector
             </a>
         </div>
     </div>
 </script>
 
-<script id="App" type="text/x-template">
+<script id="AppLayout" type="text/x-template" x-no-code-component>
     <div class="h-full flex flex-col">
-        <header class="h-14 flex-none content-center px-6 bg-smurf text-white">
-            <h3 class="text-xl"><a href="">Songbook</a></h3>
+        <header class="flex-none">
+            <slot name="header"></slot>
         </header>
         <div class="flex flex-row flex-auto">
             <nav class="border-r border-neutral-200 flex-none">
-                <navigation-item v-if="data"
-                                    text="Songs" icon="fa-solid fa-music"
-                                    :selected="selectedPage === 'songs'" @click="selectedPage = 'songs'"/>
-                <navigation-item v-if="data"
-                                    text="Work-in-progress" icon="fa-solid fa-icons"
-                                    :selected="selectedPage === 'workInProgress'" @click="selectedPage = 'workInProgress'"/>
-                <hr class="mx-3 h-px text-neutral-300">
-                <navigation-item text="Settings" icon="fa-solid fa-gears"
-                                    :selected="selectedPage === 'settings'" @click="selectedPage = 'settings'"/>
+                <slot name="nav"></slot>
             </nav>
             <main class="flex-auto">
-                <song-list v-if="selectedPage === 'songs'" :columns="columns.songs" :data="data.songs" :status="data.status" title="Songs" />
-                <song-list v-if="selectedPage === 'workInProgress'" :columns="columns.workInProgress" :data="data.workInProgress" :status="data.status" title="Work-in-progress" />
-                <app-settings v-if="selectedPage === 'settings'" :settings="settings" />
+                <slot name="main"></slot>
             </main>
         </div>
     </div>
+</script>
+
+<script id="App" type="text/x-template">
+    <app-layout>
+        <template #header>
+            <div class="h-14 content-center px-6 bg-smurf text-white">
+                <h3 class="text-xl"><a href="">Songbook</a></h3>
+            <div>
+        </template>
+
+        <template #nav>
+            <navigation-item v-if="data"
+                             text="Songs" icon="fa-solid fa-music"
+                             :selected="selectedPage === 'songs'" @click="selectedPage = 'songs'"/>
+            <navigation-item v-if="data"
+                             text="Work-in-progress" icon="fa-solid fa-icons"
+                             :selected="selectedPage === 'workInProgress'" @click="selectedPage = 'workInProgress'"/>
+            <hr class="mx-3 h-px text-neutral-300">
+            <navigation-item text="Settings" icon="fa-solid fa-gears"
+                             :selected="selectedPage === 'settings'" @click="selectedPage = 'settings'"/>
+        </template>
+
+        <template #main>
+            <song-list v-if="selectedPage === 'songs'" :columns="columns.songs" :data="data.songs" :status="data.status" title="Songs" />
+            <song-list v-if="selectedPage === 'workInProgress'" :columns="columns.workInProgress" :data="data.workInProgress" :status="data.status" title="Work-in-progress" />
+            <app-settings v-if="selectedPage === 'settings'" :settings="settings" />
+        </template>
+    </app-layout>
 </script>
 
 <script type="module">
@@ -372,10 +447,7 @@
         googleSheetsDocumentId: localStorageAccessor('songbook.googleSheetsDocumentId')
     };
 
-    if (getHashParam('googleSheetsDocumentId')) {
-        local.googleSheetsDocumentId.set(getHashParam('googleSheetsDocumentId'));
-        setHashParam('googleSheetsDocumentId', undefined);
-    }
+    initializeDocumentIdFromUrl();
 
     exportComponent('App', {
         data() {
@@ -400,12 +472,11 @@
                 settings: {
                     googleSheetsDocumentId: local.googleSheetsDocumentId.get(),
                     getGoogleSheetsDocumentUrl: function() {
-                        if (!this.googleSheetsDocumentId) {
-                            return '';
-                        }
-
-                        const id = extractDocumentId(this.googleSheetsDocumentId);
-                        return `https://docs.google.com/spreadsheets/d/${id}`;
+                        return constructDocumentUrl(this.googleSheetsDocumentId);
+                    },
+                    getSongbookBookmarkLink: function() {
+                        const url = `songbook.html?googleSheetsDocumentId=${extractDocumentId(this.googleSheetsDocumentId)}`;
+                        return new URL(url, location.href).href;
                     }
                 }
             }
@@ -429,6 +500,16 @@
         }
     });
 
+    function initializeDocumentIdFromUrl() {
+        const url = new URL(location.href);
+        const docId = url.searchParams.get('googleSheetsDocumentId');
+        if (docId) {
+            local.googleSheetsDocumentId.set(docId);
+            url.searchParams.delete('googleSheetsDocumentId');
+            location.replace(url.href);
+        }
+    }
+
     function extractDocumentId(urlOrDocumentId) {
         if (!urlOrDocumentId) {
             return undefined;
@@ -439,6 +520,15 @@
         const regex = /^(https:\/\/)?docs\.google\.com\/spreadsheets\/d\/(?<id>[^\/\?]+).*$/gi;
         const match = matchFirst(urlOrDocumentId, regex);
         return match?.groups?.id ?? urlOrDocumentId;
+    }
+
+    function constructDocumentUrl(urlOrDocumentId) {
+        if (!urlOrDocumentId) {
+            return '';
+        }
+
+        const id = extractDocumentId(urlOrDocumentId);
+        return `https://docs.google.com/spreadsheets/d/${id}`;
     }
 
     function querySheets(documentId, sheetNames) {

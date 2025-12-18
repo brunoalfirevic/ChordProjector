@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Chord Projector Opener</title>
+</head>
+<body>
+    <h2>Hello from Chord Projector Opener.</h2>
+
+    <script id="utilities">
+        function getHashParam(param) {
+            if (!window.location.hash) {
+                return undefined;
+            }
+
+            const hashParams = new URLSearchParams(window.location.hash.substring(1));
+            return hashParams.get(param);
+        }
+
+        function appendChordProjectorParams(url, text, title, artist) {
+            return url + (text ? '#text=' + encodeURIComponent(text) : '') +
+                         (text && title ? '&title=' + encodeURIComponent(title) : '') +
+                         (text && artist ? '&artist=' + encodeURIComponent(artist) : '');
+        }
+    </script>
+
+    <script id="main">
+        const openerInstanceName = window.sessionStorage.getItem("instanceName");
+        window.sessionStorage.removeItem("instanceName");
+
+        const chordProjectorUrl = appendChordProjectorParams('chord_projector.html', getHashParam('text'), getHashParam('title'), getHashParam('artist'));
+        if (window.opener && openerInstanceName && openerInstanceName === window.localStorage.getItem("instances.mainInstance")) {
+            window.opener.location.href = chordProjectorUrl;
+            window.close();
+        } else {
+            window.location.replace(chordProjectorUrl);
+        }
+    </script>
+</body>
