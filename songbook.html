@@ -7,7 +7,7 @@
     <link rel="icon" type="image/svg+xml" href="favicon-songbook.svg" id="favicon">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Roboto&family=Roboto+Mono:wght@100..700&display=block" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@100..700&family=Roboto+Mono:wght@100..700&display=block" rel="stylesheet">
 
     <style type="text/tailwindcss">
         @theme {
@@ -145,7 +145,7 @@
             <tr class="border-y border-neutral-200 divide-x">
                 <th v-for="column in columns"
                     @click="sortBy(column)"
-                    class="whitespace-nowrap select-none pl-2 pr-4 py-1 border-neutral-200 overflow-hidden"
+                    class="whitespace-nowrap select-none pl-2 pr-4 py-1 border-neutral-200 font-medium overflow-hidden"
                     :class="headerClass(column)">
                     {{column.label}}
 
@@ -155,13 +155,15 @@
             </tr>
         </thead>
         <tbody>
-            <tr v-for="entry in sortedData" class="border-y border-neutral-200 hover:bg-smurf/7" :key="entry[keyColumn]">
+            <tr v-for="entry in sortedData" :key="entry[keyColumn]" @click="$emit('itemSelected', entry)"
+                class="border-y border-neutral-200 hover:bg-smurf/7">
+
                 <td v-for="column in columns" class="cursor-pointer pl-2 pr-4 py-1 whitespace-nowrap align-top" :class="cellClass(column)">
                     <component v-if="column.type === 'action'" :is="column.component" v-bind="column.bindings(entry)"/>
                     <div v-else-if="column.size !== 'fit'" class="relative">
                         <div class="absolute overflow-hidden text-ellipsis w-full">{{entry[column.name]}}</div>
                     </div>
-                    <span v-else>{{render(entry[column.name])}}</span>
+                    <span v-else>{{entry[column.name]}}</span>
                 </td>
             </tr>
         </tbody>
@@ -206,9 +208,6 @@
                     this.sortOrder = 1;
                 }
             },
-            render(value) {
-                return theify(value);
-            },
             headerClass(column) {
                 return [
                     column.type === 'number' ? 'text-right' : 'text-left',
@@ -243,19 +242,10 @@
 
         return str;
     }
-
-    function theify(str) {
-        if ((typeof str === 'string' || str instanceof String) &&
-            (str.endsWith(', The') || str.endsWith(', the'))) {
-            return str.slice(-3) + ' ' + str.slice(0, -5);
-        }
-
-        return str;
-    }
 </script>
 
 <script id="NavigationItem" type="text/x-template" x-no-code-component x-props="{text: String, icon: String, selected: Boolean}">
-    <div class="cursor-pointer m-1 px-4 py-2 rounded-3xl min-w-56 text-sm"
+    <div class="cursor-pointer m-1 px-4 py-2 rounded-full text-sm"
          :class="{'text-mediterranean-blue bg-smurf/10': selected, 'hover:bg-neutral-50': !selected}">
         <font-awesome-icon class="mr-4" :class="{'text-neutral-500': !selected}" :icon="icon" size="xl" widthAuto />
         {{text}}
@@ -263,15 +253,15 @@
 </script>
 
 <script id="SongGridActions" type="text/x-template">
-    <span class="inline-block w-10 ml-3">
+    <span class="inline-block w-9 ml-2">
         <a v-if="openChordsUrl" v-tooltip="'Chord Projector'" :href="openChordsUrl" target="_blank" rel="noopener">
             <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-video" widthAuto />
         </a>
     </span>
-    <span class="inline-block w-10">
+    <span class="inline-block w-9">
         <font-awesome-icon v-if="data.Chords" v-tooltip="'Cast Directly'" @click="castDirectly" class="text-neutral-500" icon="fa-solid fa-location-crosshairs" widthAuto />
     </span>
-    <span class="inline-block w-10">
+    <span class="inline-block w-5">
         <a v-if="ultimateGuitarUrl" v-tooltip="'Ultimate Guitar'" :href="ultimateGuitarUrl" target="_blank" rel="noopener noreferrer">
             <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-guitar" widthAuto />
         </a>
@@ -355,9 +345,11 @@
         x-props="{columns: Array, data: Array, status: String, title: String}">
 
     <div class="flex flex-col h-full">
-        <h3 class="p-2 text-lg">{{title}}</h3>
+        <h3 class="p-3 text-lg">{{title}}</h3>
 
-        <data-grid v-if="status === 'fulfilled' && data.length" :data="data" :columns="columns" class="w-full flex-auto" />
+        <data-grid v-if="status === 'fulfilled' && data.length" :data="data" :columns="columns"
+                   @item-selected="item => $emit('songSelected', item)"
+                   class="w-full flex-auto" />
 
         <div v-else class="flex-auto place-content-center text-center text-lg border-t border-neutral-200">
             <span v-if="status === 'pending'"><font-awesome-icon icon="fa-solid fa-spinner" /> Loading</span>
@@ -369,8 +361,37 @@
     </div>
 </script>
 
+<script id="SongDetails" type="text/x-template" x-no-code-component x-props="{song: Object}">
+    <div class="flex flex-row justify-between items-center px-3 text-lg">
+        <h3 class="py-3">Details</h3>
+        <div class="h-8 w-8 content-center text-center rounded-full cursor-pointer text-neutral-500 hover:bg-neutral-50">
+            <font-awesome-icon icon="fa-solid fa-xmark" @click="$emit('close')" />
+        </div>
+    </div>
+
+    <hr class="mx-1 h-px text-neutral-300">
+    <div class="p-3">
+        <div v-if="song.Artist" class="mb-3">
+            <div class="text-sm text-neutral-500 mb-1 font-medium">Artist</div>
+            <div>{{song.Artist}}</div>
+        </div>
+        <div v-if="song.Title" class="mb-3">
+            <div class="text-sm text-neutral-500 mb-1 font-medium">Title</div>
+            <div>{{song.Title}}</div>
+        </div>
+        <div v-if="song.Note" class="mb-3">
+            <div class="text-sm text-neutral-500 mb-1 font-medium">Note</div>
+            <div>{{song.Note}}</div>
+        </div>
+        <div v-if="song.Chords" class="mb-3">
+            <div class="text-sm text-neutral-500 mb-1 font-medium">Chords</div>
+            <div class="text-sm font-[Roboto_Mono] whitespace-pre">{{song.Chords}}</div>
+        </div>
+    </div>
+</script>
+
 <script id="AppSettings" type="text/x-template" x-no-code-component x-props="{settings: Object}">
-    <h3 class="p-2 text-lg">Settings</h3>
+    <h3 class="p-3 text-lg">Settings</h3>
     <hr class="mx-1 h-px text-neutral-300">
 
     <div class="p-2">
@@ -404,12 +425,19 @@
             <slot name="header"></slot>
         </header>
         <div class="flex flex-row flex-auto">
-            <nav class="border-r border-neutral-200 flex-none">
+            <nav class="flex-none border-r border-neutral-200">
                 <slot name="nav"></slot>
             </nav>
-            <main class="flex-auto">
-                <slot name="main"></slot>
+            <main class="flex-10 relative">
+                <div class="absolute h-full w-full overflow-scroll">
+                    <slot name="main"></slot>
+                <div>
             </main>
+            <aside v-if="$slots.details" class="flex-7 border-l border-neutral-200 relative">
+                <div class="absolute h-full w-full overflow-scroll">
+                    <slot name="details"></slot>
+                <div>
+            </aside>
         </div>
     </div>
 </script>
@@ -425,19 +453,25 @@
         <template #nav>
             <navigation-item v-if="data"
                              text="Songs" icon="fa-solid fa-music"
-                             :selected="selectedPage === 'songs'" @click="selectedPage = 'songs'"/>
+                             :selected="pageIs('songs')" @click="selectPage('songs')"/>
             <navigation-item v-if="data"
                              text="Work-in-progress" icon="fa-solid fa-icons"
-                             :selected="selectedPage === 'workInProgress'" @click="selectedPage = 'workInProgress'"/>
+                             :selected="pageIs('workInProgress')" @click="selectPage('workInProgress')"/>
             <hr class="mx-3 h-px text-neutral-300">
             <navigation-item text="Settings" icon="fa-solid fa-gears"
-                             :selected="selectedPage === 'settings'" @click="selectedPage = 'settings'"/>
+                             :selected="pageIs('settings')" @click="selectPage('settings')"/>
         </template>
 
         <template #main>
-            <song-list v-if="selectedPage === 'songs'" :columns="columns.songs" :data="data.songs" :status="data.status" title="Songs" />
-            <song-list v-if="selectedPage === 'workInProgress'" :columns="columns.workInProgress" :data="data.workInProgress" :status="data.status" title="Work-in-progress" />
-            <app-settings v-if="selectedPage === 'settings'" :settings="settings" />
+            <song-list v-if="pageIs('songs')" :columns="columns.songs" :data="data.songs"
+                       :status="data.status" title="Songs" @song-selected="selectSong" />
+            <song-list v-if="pageIs('workInProgress')" :columns="columns.workInProgress" :data="data.workInProgress"
+                       :status="data.status" title="Work-in-progress" @song-selected="selectSong" />
+            <app-settings v-if="pageIs('settings')" :settings="settings" />
+        </template>
+
+        <template v-if="pageIs('songs', 'workInProgress') && selectedSong" #details>
+            <song-details :song="selectedSong" @close="selectSong(null)"/>
         </template>
     </app-layout>
 </script>
@@ -469,6 +503,7 @@
                 },
                 data: null,
                 selectedPage: 'songs',
+                selectedSong: null,
                 settings: {
                     googleSheetsDocumentId: local.googleSheetsDocumentId.get(),
                     getGoogleSheetsDocumentUrl: function() {
@@ -496,6 +531,20 @@
                     }
                 },
                 immediate: true
+            }
+        },
+        methods: {
+            pageIs(...pages) {
+                return pages.includes(this.selectedPage);
+            },
+            selectPage(page) {
+                if (page !== this.selectedPage) {
+                    this.selectedPage = page;
+                    this.selectedSong = null;
+                }
+            },
+            selectSong(song) {
+                this.selectedSong = song;
             }
         }
     });
@@ -531,15 +580,30 @@
         return `https://docs.google.com/spreadsheets/d/${id}`;
     }
 
+    function indexify(array) {
+        array.forEach((v, i) => v.$rowNumber = i + 1);
+        return array;
+    }
+
+    function theify(array) {
+        for (const item of array) {
+            for (const [key, value] of Object.entries(item)) {
+                if ((typeof value === 'string' || value instanceof String) &&
+                    (value.endsWith(', The') || value.endsWith(', the'))) {
+                    item[key] = value.slice(-3) + ' ' + value.slice(0, -5);
+                }
+            }
+        }
+        return array;
+    }
+
     function querySheets(documentId, sheetNames) {
         sheetNames ??= ['']
 
         const promises = sheetNames.map(sheetName => new PublicGoogleSheetsParser(documentId, sheetName ? {sheetName} : undefined)
                                                             .parse()
-                                                            .then(data => {
-                                                                data.forEach((v, i) => v.$rowNumber = i + 1);
-                                                                return data;
-                                                            }));
+                                                            .then(theify)
+                                                            .then(indexify));
         return Promise.all(promises);
     }
 </script>
@@ -565,7 +629,7 @@
 
     const app = createApp({template: '<App />'});
 
-    app.use(FloatingVue, {distance: 15, themes: {tooltip: {delay: {show: 0, hide: 0}}}});
+    app.use(FloatingVue, {distance: 15, strategy: 'fixed', themes: {tooltip: {delay: {show: 0, hide: 0}}}});
 
     const components = {
         FontAwesomeIcon,
