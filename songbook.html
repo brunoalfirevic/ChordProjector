@@ -260,15 +260,17 @@
 
 <script id="SongGridActions" type="text/x-template">
     <span class="inline-block w-9 ml-2">
-        <a v-if="openChordsUrl" v-tooltip="'Chord Projector'" :href="openChordsUrl" target="_blank" rel="noopener">
+        <a v-if="openChordsUrl" v-tooltip="'Chord Projector'" :href="openChordsUrl" target="_blank" rel="noopener" @click.stop>
             <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-video" widthAuto />
         </a>
     </span>
     <span class="inline-block w-9">
-        <font-awesome-icon v-if="data.Chords" v-tooltip="'Cast Directly'" @click="castDirectly" class="text-neutral-500" icon="fa-solid fa-location-crosshairs" widthAuto />
+        <span v-if="data.Chords" v-tooltip="'Cast Directly'" @click.stop="castDirectly">
+            <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-location-crosshairs" widthAuto />
+        </span>
     </span>
     <span class="inline-block w-5">
-        <a v-if="ultimateGuitarUrl" v-tooltip="'Ultimate Guitar'" :href="ultimateGuitarUrl" target="_blank" rel="noopener noreferrer">
+        <a v-if="ultimateGuitarUrl" v-tooltip="'Ultimate Guitar'" :href="ultimateGuitarUrl" target="_blank" rel="noopener noreferrer" @click.stop>
             <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-guitar" widthAuto />
         </a>
     </span>
