@@ -117,10 +117,16 @@
         return intervalHandle;
     }
 
-    function exportComponent(name, component) {
+    function exportComponent(names, component) {
         window.globalComponents ??= {};
-        component.template ??= '#' + name;
-        window.globalComponents[name] = component;
+
+        if (!Array.isArray(names)) {
+            names = [names];
+        }
+
+        for (const name of names) {
+            window.globalComponents[name] = {template: '#' + name, ...component};
+        }
     }
 
     function discoverNoCodeComponents() {
@@ -268,6 +274,39 @@
     </span>
 </script>
 
+<script id="SongDetailsActions" type="text/x-template">
+    <div v-if="openChordsUrl || data.Chords || ultimateGuitarUrl" class="mt-5">
+        <a v-if="openChordsUrl" :href="openChordsUrl" target="_blank" rel="noopener"
+           class="inline-block cursor-pointer align-top ml-3">
+
+            <div class="size-10 content-center text-center mx-auto mb-1 rounded-full bg-mediterranean-blue">
+                <font-awesome-icon icon="fa-solid fa-video" size="lg" inverse/>
+            </div>
+            <div class="m-auto max-w-22 text-center text-sm/4">Open Chord Projector</div>
+        </a>
+
+        <span v-if="data.Chords" @click="castDirectly"
+              class="inline-block cursor-pointer align-top ml-3">
+
+            <div class="size-10 content-center text-center mx-auto mb-1 rounded-full bg-mediterranean-blue">
+                <font-awesome-icon icon="fa-solid fa-location-crosshairs" size="lg" inverse/>
+            </div>
+            <div class="m-auto max-w-22 text-center text-sm/4">Cast Directly</div>
+        </span>
+
+        <a v-if="ultimateGuitarUrl" :href="ultimateGuitarUrl" target="_blank" rel="noopener noreferrer"
+           class="inline-block cursor-pointer align-top ml-3">
+
+            <div class="size-10 content-center text-center mx-auto mb-1 rounded-full bg-mediterranean-blue">
+                <font-awesome-icon icon="fa-solid fa-guitar" size="lg" inverse/>
+            </div>
+            <div class="m-auto max-w-22 text-center text-sm/4">Ultimate Guitar</div>
+        </a>
+
+        <hr class="h-1 bg-neutral-200 border-0 mt-5">
+    </div>
+</script>
+
 <script type="module">
     const local = {
         offeredForProjection: localStorageAccessor("offeredForProjection"),
@@ -276,7 +315,7 @@
 
     let projectionOfferIntervalHandle;
 
-    exportComponent('SongGridActions', {
+    exportComponent(['SongGridActions','SongDetailsActions'], {
         props: {
             data: Object
         },
@@ -363,13 +402,16 @@
 
 <script id="SongDetails" type="text/x-template" x-no-code-component x-props="{song: Object}">
     <div class="flex flex-row justify-between items-center px-3 text-lg">
-        <h3 class="py-3">Details</h3>
-        <div class="h-8 w-8 content-center text-center rounded-full cursor-pointer text-neutral-500 hover:bg-neutral-50">
+        <h3 class="py-3">Song Details</h3>
+        <div class="size-8 content-center text-center rounded-full cursor-pointer text-neutral-500 hover:bg-neutral-50">
             <font-awesome-icon icon="fa-solid fa-xmark" @click="$emit('close')" />
         </div>
     </div>
 
-    <hr class="mx-1 h-px text-neutral-300">
+    <hr class="mx-1 text-neutral-300">
+
+    <song-details-actions :data="song" />
+
     <div class="p-3">
         <div v-if="song.Artist" class="mb-3">
             <div class="text-sm text-neutral-500 mb-1 font-medium">Artist</div>
@@ -392,7 +434,7 @@
 
 <script id="AppSettings" type="text/x-template" x-no-code-component x-props="{settings: Object}">
     <h3 class="p-3 text-lg">Settings</h3>
-    <hr class="mx-1 h-px text-neutral-300">
+    <hr class="mx-1 text-neutral-300">
 
     <div class="p-2">
         <label for="settings.googleSheetsDocumentId" class="block mb-2.5 text-sm">
@@ -457,7 +499,7 @@
             <navigation-item v-if="data"
                              text="Work-in-progress" icon="fa-solid fa-icons"
                              :selected="pageIs('workInProgress')" @click="selectPage('workInProgress')"/>
-            <hr class="mx-3 h-px text-neutral-300">
+            <hr class="mx-3 text-neutral-300">
             <navigation-item text="Settings" icon="fa-solid fa-gears"
                              :selected="pageIs('settings')" @click="selectPage('settings')"/>
         </template>
