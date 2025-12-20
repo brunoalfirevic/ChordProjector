@@ -69,7 +69,8 @@
     function localStorageAccessor(key) {
         return {
             get: () => window.localStorage.getItem(key),
-            set: value => window.localStorage.setItem(key, value),
+            set: value => value == undefined ? window.localStorage.removeItem(key)
+                                             : window.localStorage.setItem(key, value),
             remove: () => window.localStorage.removeItem(key),
             exists: () => window.localStorage.getItem(key) != undefined
         }
