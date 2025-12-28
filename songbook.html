@@ -271,7 +271,7 @@
 
 <script id="SongGridActions" type="text/x-template">
     <span class="inline-block w-9 ml-2">
-        <a v-if="openChordsUrl" v-tooltip="'Chord Projector'" :href="openChordsUrl" target="_blank" rel="noopener" @click.stop>
+        <a v-if="openChordsUrl" v-tooltip="'Open Chord Projector'" :href="openChordsUrl" target="_blank" rel="noopener" @click.stop>
             <font-awesome-icon class="text-neutral-500" icon="fa-solid fa-video" widthAuto />
         </a>
     </span>
@@ -305,6 +305,15 @@
                 <font-awesome-icon icon="fa-solid fa-location-crosshairs" size="lg" inverse/>
             </div>
             <div class="m-auto max-w-22 text-center text-sm/4">Cast Directly</div>
+        </span>
+
+        <span v-if="data.Chords" @click="copyChordsToClipboard"
+              class="inline-block cursor-pointer align-top ml-3">
+
+            <div class="size-10 content-center text-center mx-auto mb-1 rounded-full bg-mediterranean-blue">
+                <font-awesome-icon icon="fa-solid fa-clipboard" size="lg" inverse/>
+            </div>
+            <div class="m-auto max-w-22 text-center text-sm/4">Copy chords to clipboard</div>
         </span>
 
         <a v-if="ultimateGuitarUrl" :href="ultimateGuitarUrl" target="_blank" rel="noopener noreferrer"
@@ -382,6 +391,9 @@
                         window.open(this.castDirectlyUrl, '_blank', 'noopener')
                     }
                 });
+            },
+            copyChordsToClipboard() {
+                copyToClipboard(this.data.Chords);
             }
         }
     });
@@ -390,6 +402,67 @@
         return url + (text ? '#text=' + encodeURIComponent(text) : '') +
                      (text && title ? '&title=' + encodeURIComponent(title) : '') +
                      (text && artist ? '&artist=' + encodeURIComponent(artist) : '');
+    }
+
+    function copyToClipboard(text) {
+        if (!text) {
+            return;
+        }
+
+        /* Try to use the Clipboard API first (modern browsers) */
+        if (navigator.clipboard) {
+            return navigator.clipboard.writeText(text)
+                .then(() => {
+                    console.log('Text copied to clipboard');
+                    return true;
+                })
+                .catch(err => {
+                    console.error('Clipboard API failed:', err);
+                    /* Try fallback method */
+                    return fallbackCopy(text);
+                });
+        } else {
+            /* Use fallback for browsers without Clipboard API */
+            return Promise.resolve(fallbackCopy(text));
+        }
+
+        function fallbackCopy(text) {
+            const textarea = document.createElement('textarea');
+            textarea.value = text;
+
+            /* Make it invisible */
+            textarea.style.position = 'absolute';
+            textarea.style.left = '-9999px';
+            textarea.style.top = '0';
+            textarea.setAttribute('readonly', ''); /* Prevent mobile keyboards */
+
+            document.body.appendChild(textarea);
+
+            /* Special handling for iOS */
+            const isIOS = navigator.userAgent.match(/ipad|iphone/i);
+
+            if (isIOS) {
+                const range = document.createRange();
+                range.selectNodeContents(textarea);
+                const selection = window.getSelection();
+                selection.removeAllRanges();
+                selection.addRange(range);
+                textarea.setSelectionRange(0, 999999); /* For mobile devices */
+            } else {
+                textarea.select();
+            }
+
+            let success = false;
+            try {
+                success = document.execCommand('copy');
+            } catch (err) {
+                console.error('Clipboard Copy Fallback: Could not copy text: ', err);
+            }
+
+            /* Clean up */
+            document.body.removeChild(textarea);
+            return success;
+        }
     }
 </script>
 
