@@ -586,11 +586,10 @@
             .pretty-tablatures {
                 .tablature-line .char[content="-"],
                 .tablature-line .char[content="|"] {
-                    position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
+                    /* content replacement groundwork */
+                    position: relative; display: inline-block; width: 1ch; &::first-line {color: transparent;} &::after {position: absolute; left: 0; top: 0;}
 
                     &::after {
-                        position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
-
                         font-weight: 300;
                         color: gray;
                     }
@@ -634,14 +633,14 @@
                 }
             }
 
-            /* Specific character styling */
-
+            /* Enhance the look of vertical bar characters */
             .line:not(.tablature-line):not(.followed-by-tablature-line) .char[content="|"] {
                 display: inline-block;
                 transform: translateY(-1px) scaleY(1.2);
                 font-weight: 700;
             }
 
+            /* Make dots more visible when used alongside notes */
             .line .chord-suffix .char[content="."],
             .tablature-timing-line .char[content="."] {
                 font-weight: 700;
@@ -659,11 +658,10 @@
             .nashville-legend .nashville-numeral .char[content="b"],
             .line .chord.nashville .chord-name .char[content="b"],
             .line .chord.nashville .bass .char[content="b"] {
-                position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
+                /* content replacement groundwork */
+                position: relative; display: inline-block; width: 1ch; &::first-line {color: transparent;} &::after {position: absolute; left: 0; top: 0;}
 
                 &::after {
-                    position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
-
                     width: 1ch;
                     text-align: center;
                     font-weight: 700;
@@ -680,27 +678,58 @@
                 }
             }
 
-            /* Restore the text color that was set to 'initial' in the stylized accidentals replacement CSS block */
-            .colorful-chords .line .chord .char::after,
-            .colorful-chords .line.nashville-legend .note .char::after {
-                color: rgb(0, 123, 255) !important;
-            }
-
             /* Symbol for pushed chord */
             .chord-prefix .char[content="⤺"],
             .chord-prefix .char[content="ᑉ"],
             .chord-prefix .char[content="<"],
             .chord-prefix .char[content=">"],
             .chord-prefix .char[content="~"] {
-                position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
+                /* content replacement groundwork */
+                position: relative; display: inline-block; width: 1ch; &::first-line {color: transparent;} &::after {position: absolute; left: 0; top: 0;}
 
                 &::after {
-                    position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
-
                     content: '⤺';
-
                     margin-top: -0.2em;
                     font-weight: 700;
+                }
+            }
+
+            /* Tenuto symbol */
+            .line .chord-suffix .char[content="‾"],
+            .line .chord-suffix .char[content="¯"],
+            .line .chord-suffix .char[content="_"],
+            .line .chord-suffix .char[content="▔"] {
+                /* content replacement groundwork */
+                position: relative; display: inline-block; width: 1ch; &::first-line {color: transparent;} &::after {position: absolute; left: 0; top: 0;}
+
+                &::after {
+                    content: '‾';
+                }
+            }
+
+             /* Marcato symbol */
+            .line .chord-suffix .char[content="^"] {
+                font-weight: 700;
+            }
+
+            /* Fermata as a standalone chord */
+            .line .chord:has(.chord-name > .char[content="𝄐"]) {
+                background-color: unset !important;
+                color: unset !important;
+            }
+
+            .line .chord .chord-name > .char[content="𝄐"] {
+                /* content replacement groundwork */
+                position: relative; display: inline-block; width: 1ch; &::first-line {color: transparent;} &::after {position: absolute; left: 0; top: 0;}
+
+                &::after {
+                    width: 1ch;
+                    text-align: center;
+                    font-family: 'Noto Music';
+                    font-weight: 700;
+
+                    content: '𝄐';
+                    margin-top: 0.3em;
                 }
             }
 
@@ -722,11 +751,10 @@
                 .char[content="♪"],
                 .char[content="♩"],
                 .char[content="⌇"] {
-                    position: relative; display: inline-block; width: 1ch; color: transparent; /* content replacement groundwork */
+                    /* content replacement groundwork */
+                    position: relative; display: inline-block; width: 1ch; &::first-line {color: transparent;} &::after {position: absolute; left: 0; top: 0;}
 
                     &::after {
-                        position: absolute; left: 0; top: 0; color: initial; /* content replacement groundwork */
-
                         width: 1ch;
                         text-align: center;
                         font-family: 'Noto Music';
@@ -1640,7 +1668,7 @@
         const regexes = (function() {
             const noteNames = /(C|D|E|F|G|A|B|H)(♯|#|b|♭){0,2}/;
 
-            const musicalSymbols = '. … ‥ ․ ‾¯ ^⌃Δ▲⏶ -⏜⏝◠◡⌒⌣ ⬭⬬ ◇⬦♢◆♦ ♩♪𝄐 𐒇⌇▬⬓⬒ ①②④⑧⑯❶❷❹❽⓰';
+            const musicalSymbols = '. … ‥ ․ _‾¯▔ ^⌃Δ▲⏶ -⏜⏝◠◡⌒⌣ ⬭⬬ ◇⬦♢◆♦ ♩♪𝄐 𐒇⌇▬⬓⬒ ①②④⑧⑯❶❷❹❽⓰';
             const beatSymbols = '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ ₀₁₂₃₄₅₆₇₈₉₊₋₌ •▮ ▚ ▯ ◫⎅ ⋈⧓';
 
             const parenthesizedContent = /\([^\)]+\)/;
@@ -1651,21 +1679,22 @@
                               rgx.chars({name: "prefix", optional: true}, '⤺ᑉ~<>'),
                               rgx({name: "chordName"},
                                   [rgx.of('N.C.'),
-                                  /%/,
-                                  /X/,
-                                  rgx(rgx("root", noteNames),
-                                      rgx({name: "variant", optional: true},
-                                          [/(maj7|M7|7)?(?<isSuspended>sus)(2|4)?/,
-                                           /(?<isDiminished>dim|°|ø)7?/, // ° is diminished, ø is half-diminished
-                                           /(?<isAugmented>aug)7?/,
-                                           /M/,
-                                           /(?<isPower>5)/,
-                                           rgx(/(?<isMinor>m|min)?/,
-                                               /(2|4|6|((maj|M)?(7|9|11|13)))?/,
-                                               rgx({optional: true},
-                                                   [/(?<hasFlatFifth>b5|♭5)/, /♯5|#5/, /(♯|#|b|♭)9/, /add(♯|#|b|♭)?(9|11|13)/]))
-                                          ]),
-                                      rgx({optional: true}, rgx.of('/'), rgx("bass", noteNames)))
+                                   /%/,
+                                   /X/,
+                                   /𝄐/,
+                                   rgx(rgx("root", noteNames),
+                                       rgx({name: "variant", optional: true},
+                                           [/(maj7|M7|7)?(?<isSuspended>sus)(2|4)?/,
+                                            /(?<isDiminished>dim|°|ø)7?/, // ° is diminished, ø is half-diminished
+                                            /(?<isAugmented>aug)7?/,
+                                            /M/,
+                                            /(?<isPower>5)/,
+                                            rgx(/(?<isMinor>m|min)?/,
+                                                /(2|4|6|((maj|M)?(7|9|11|13)))?/,
+                                                rgx({optional: true},
+                                                    [/(?<hasFlatFifth>b5|♭5)/, /♯5|#5/, /(♯|#|b|♭)9/, /add(♯|#|b|♭)?(9|11|13)/]))
+                                           ]),
+                                       rgx({optional: true}, rgx.of('/'), rgx("bass", noteNames)))
                                   ]),
                               rgx.chars({name: "suffix", optional: true, repeat: true}, beatSymbols + musicalSymbols),
                               [/$/, rgx.lookAhead(rgx.chars({whitespace: true}, '|()-╶{╴⏜⏝◠◡⌒⌣,:*'))],
