@@ -905,7 +905,7 @@
 
     <div id="newSongInfoOverlay" class="new-song-info-overlay hidden">
         <div class="modal">
-            <div class="info">New Song Loaded</div>
+            <div id="newSongInfoHeading" class="info">New Song Loaded</div>
             <div id="newSongInfoTitle" class="title"></div>
             <div id="newSongInfoArtist" class="artist"></div>
         </div>
@@ -2650,6 +2650,10 @@
                 }
 
                 doc.newSongInfoOverlay.classList.remove('hidden', 'visible', 'hiding');
+
+                doc.newSongInfoHeading.textContent = (Math.random() * 10 | 0) === 1
+                    ? 'A sada — spektakl!'
+                    : 'New Song Loaded';
 
                 setTimeout(() => {
                     requestAnimationFrame(() => {
