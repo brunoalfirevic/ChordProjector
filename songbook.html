@@ -288,9 +288,9 @@
 </script>
 
 <script id="SongDetailsActions" type="text/x-template">
-    <div v-if="openChordsUrl || data.Chords || ultimateGuitarUrl" class="mt-5">
+    <div v-if="openChordsUrl || data.Chords || ultimateGuitarUrl">
         <a v-if="openChordsUrl" :href="openChordsUrl" target="_blank" rel="noopener"
-           class="inline-block cursor-pointer align-top ml-3">
+           class="inline-block cursor-pointer align-top ml-3 mt-5">
 
             <div class="size-10 content-center text-center mx-auto mb-1 rounded-full bg-mediterranean-blue">
                 <font-awesome-icon icon="fa-solid fa-video" size="lg" inverse/>
@@ -299,7 +299,7 @@
         </a>
 
         <span v-if="data.Chords" @click="castDirectly"
-              class="inline-block cursor-pointer align-top ml-3">
+              class="inline-block cursor-pointer align-top ml-3 mt-5">
 
             <div class="size-10 content-center text-center mx-auto mb-1 rounded-full bg-mediterranean-blue">
                 <font-awesome-icon icon="fa-solid fa-location-crosshairs" size="lg" inverse/>
@@ -308,7 +308,7 @@
         </span>
 
         <span v-if="data.Chords" @click="copyChordsToClipboard"
-              class="inline-block cursor-pointer align-top ml-3">
+              class="inline-block cursor-pointer align-top ml-3 mt-5">
 
             <div class="size-10 content-center text-center mx-auto mb-1 rounded-full bg-mediterranean-blue">
                 <font-awesome-icon icon="fa-solid fa-clipboard" size="lg" inverse/>
