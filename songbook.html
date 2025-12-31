@@ -162,7 +162,7 @@
             <tr class="border-y border-neutral-200 divide-x">
                 <th v-for="column in columns"
                     @click="sortBy(column)"
-                    class="whitespace-nowrap select-none pl-2 pr-4 py-1 border-neutral-200 font-medium overflow-hidden"
+                    class="whitespace-nowrap select-none pl-1 lg:pl-2 pr-2 lg:pr-4 py-1 border-neutral-200 font-medium overflow-hidden"
                     :class="headerClass(column)">
                     {{column.label}}
 
@@ -175,7 +175,7 @@
             <tr v-for="entry in sortedData" :key="entry[keyColumn]" @click="$emit('itemSelected', entry)"
                 class="border-y border-neutral-200 hover:bg-smurf/7">
 
-                <td v-for="column in columns" class="cursor-pointer pl-2 pr-4 py-1 whitespace-nowrap align-top" :class="cellClass(column)">
+                <td v-for="column in columns" class="cursor-pointer pl-1 lg:pl-2 pr-2 lg:pr-4 py-1 whitespace-nowrap align-top" :class="cellClass(column)">
                     <component v-if="column.type === 'action'" :is="column.component" v-bind="column.bindings(entry)"/>
                     <div v-else-if="column.size !== 'fit'" class="relative">
                         <div class="absolute overflow-hidden text-ellipsis w-full">{{entry[column.name]}}</div>
@@ -228,7 +228,7 @@
             headerClass(column) {
                 return [
                     column.type === 'number' ? 'text-right' : 'text-left',
-                    {'w-0 min-w-14': column.size === 'fit'},
+                    {'w-0 min-w-8 lg:min-w-14': column.size === 'fit'},
                     {'w-full': column.size !== 'fit'},
                     {'cursor-pointer': column.type !== 'action'}
                 ];
@@ -236,7 +236,7 @@
             cellClass(column) {
                 return [
                     column.type === 'number' ? 'text-right' : 'text-left',
-                    {'w-0 min-w-14': column.size === 'fit'},
+                    {'w-0 min-w-8 lg:min-w-14': column.size === 'fit'},
                     {'w-full': column.size !== 'fit'},
                     {'min-w-0': column.size !== 'fit'}
                 ];
@@ -264,8 +264,8 @@
 <script id="NavigationItem" type="text/x-template" x-no-code-component x-props="{text: String, icon: String, selected: Boolean}">
     <div class="cursor-pointer m-1 px-4 py-2 rounded-full text-sm"
          :class="{'text-mediterranean-blue bg-smurf/10': selected, 'hover:bg-neutral-50': !selected}">
-        <font-awesome-icon class="mr-4" :class="{'text-neutral-500': !selected}" :icon="icon" size="xl" widthAuto />
-        {{text}}
+        <font-awesome-icon :class="{'text-neutral-500': !selected}" :icon="icon" size="xl" widthAuto />
+        <span class="hidden lg:inline ml-4">{{text}}</span>
     </div>
 </script>
 
@@ -317,7 +317,7 @@
         </span>
 
         <a v-if="ultimateGuitarUrl" :href="ultimateGuitarUrl" target="_blank" rel="noopener noreferrer"
-           class="inline-block cursor-pointer align-top ml-3">
+           class="inline-block cursor-pointer align-top ml-3 mt-5">
 
             <div class="size-10 content-center text-center mx-auto mb-1 rounded-full bg-mediterranean-blue">
                 <font-awesome-icon icon="fa-solid fa-guitar" size="lg" inverse/>
@@ -556,7 +556,7 @@
             <nav class="flex-none border-r border-neutral-200">
                 <slot name="nav"></slot>
             </nav>
-            <main class="flex-10 relative">
+            <main class="flex-10 relative" :class="{'hidden md:block': $slots.details}">
                 <div class="absolute size-full overflow-scroll">
                     <slot name="main"></slot>
                 <div>
