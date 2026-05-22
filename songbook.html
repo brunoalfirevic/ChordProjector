@@ -553,10 +553,10 @@
             <slot name="header"></slot>
         </header>
         <div class="flex flex-row flex-auto">
-            <nav class="flex-none border-r border-neutral-200">
+            <nav class="flex-none border-r border-neutral-200" :class="{'hidden md:block': !!$slots.details}">
                 <slot name="nav"></slot>
             </nav>
-            <main class="flex-10 relative" :class="{'hidden md:block': $slots.details}">
+            <main class="flex-10 relative" :class="{'hidden md:block': !!$slots.details}">
                 <div class="absolute size-full overflow-scroll">
                     <slot name="main"></slot>
                 <div>
