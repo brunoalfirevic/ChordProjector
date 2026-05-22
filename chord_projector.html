@@ -1213,6 +1213,12 @@
                         .join('')
         }
 
+        if (!RegExp.escape) {
+            RegExp.escape = function (str) {
+                return str.replace(/[-[\]{}()*+!<=:?.\/\\^$|#\s,]/g, '\\$&');
+            }
+        }
+
         function rgx(optionArg, ...args) {
             if (typeof optionArg === 'string' || optionArg instanceof String) {
                 return createRegex({name: optionArg}, args);
