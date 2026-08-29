@@ -693,6 +693,24 @@
                 }
             }
 
+            /* Beat symbols */
+            .line .chord-suffix .char[content="▮"],
+            .line .chord-suffix .char[content="▯"] {
+                font-style: italic;
+                display: inline-block;
+                transform: scaleX(1.1);
+
+                &[content="▮"] {
+                    text-shadow: 0  0.2px 0 black,
+                                 0 -0.2px 0 black;
+                }
+
+                &[content="▯"] {
+                    text-shadow: 0.2px  0.2px 0.5px black,
+                                -0.2px -0.2px 0.5px black;
+                }
+            }
+
             /* Tenuto symbol */
             .line .chord-suffix .char[content="‾"],
             .line .chord-suffix .char[content="¯"],
@@ -1674,8 +1692,8 @@
         const regexes = (function() {
             const noteNames = /(C|D|E|F|G|A|B|H)(♯|#|b|♭){0,2}/;
 
-            const musicalSymbols = '. … ‥ ․ _‾¯▔ ^⌃Δ▲⏶ -⏜⏝◠◡⌒⌣ ⬭⬬ ◇⬦♢◆♦ ♩♪𝄐 𐒇⌇▬⬓⬒ ①②④⑧⑯❶❷❹❽⓰';
-            const beatSymbols = '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ ₀₁₂₃₄₅₆₇₈₉₊₋₌ •▮ ▚ ▯ ◫⎅ ⋈⧓';
+            const musicalSymbols = '. … ‥ ․ _‾¯▔ ^⌃Δ▲⏶ -⏜⏝◠◡⌒⌣ ♩♪𝄐 ①②④⑧⑯❶❷❹❽⓰';
+            const beatSymbols = '⁰¹²³⁴⁵⁶⁷⁸⁹⁺⁻⁼ ₀₁₂₃₄₅₆₇₈₉₊₋₌ ▮▯ •◦ ⦿◔';
 
             const parenthesizedContent = /\([^\)]+\)/;
             const bracedContent = /\{[^\}]+\}/;
