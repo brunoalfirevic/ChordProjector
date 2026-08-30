@@ -951,6 +951,7 @@
                 <strong>m</strong> - increase font,
                 <strong>f</strong> - fit text,
                 <strong>v</strong> - use Nashville notation
+                <strong>s</strong> - show Nashville hints
             </div>
         </div>
     </div>
@@ -3021,6 +3022,11 @@
 
                 case 'v': { // Toggle Nashville notation
                     data.useNashvilleNotation.toggle();
+                    break;
+                }
+
+                case 's': { // Toggle Nashville hints
+                    data.nashvilleHints.set(data.nashvilleHints.get() ? '' : 'right');
                     break;
                 }
             }
