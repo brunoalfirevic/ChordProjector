@@ -234,6 +234,21 @@
             padding-right: .13em;
         }
 
+        .line .chord .nashville-hint {
+            color: rgb(215, 0, 0);
+
+            font-size: .83em;
+            line-height: 0.5em;
+            top: -0.4em;
+            vertical-align: baseline;
+            position: relative;
+
+            .char {
+                display: inline-block;
+                width: 1.2ch !important;
+            }
+        }
+
         .colorful-chords .line .chord.nashville .variant-separator,
         .colorful-chords .line .chord.nashville .variant .char[content="⚡"] {
             color: rgb(215, 0, 0);
@@ -555,6 +570,14 @@
             align-items: flex-end;
         }
 
+        .align-flex-start {
+            align-items: flex-start;
+        }
+
+        .align-flex-center {
+            align-items: center;
+        }
+
         .flex1 { flex: 1; }
         .flex2 { flex: 2; }
         .flex3 { flex: 3; }
@@ -656,7 +679,8 @@
             .stylize-accidentals .line .metadata-key-name .char[content="#"],
             .nashville-legend .nashville-numeral .char[content="b"],
             .line .chord.nashville .chord-name .char[content="b"],
-            .line .chord.nashville .bass .char[content="b"] {
+            .line .chord.nashville .bass .char[content="b"],
+            .line .chord:not(.nashville) .nashville-hint .char[content="b"] {
                 /* content replacement groundwork */
                 position: relative; display: inline-block; width: 1ch; &::first-letter {color: transparent;} &::after {position: absolute; left: 0; top: 0;}
 
@@ -671,6 +695,7 @@
                     text-align: left;
                     font-family: 'Arial Unicode MS', 'Julia Mono Webfont', monospace;
                 }
+
                 &[content="#"]::after {
                     content: '♯';
                     font-family: 'Arial Unicode MS', 'Julia Mono Webfont', monospace;
@@ -833,8 +858,9 @@
                     </div>
 
                     <div class="flex-row">
-                        <label for="useNashvilleNotation">Nashville notation:</label>
-                        <input type="checkbox" id="useNashvilleNotation" value="true">
+                        <label for="castMode" id="castModeLabel">Is casting:</label>
+                        <input type="checkbox" id="castMode" value="true">
+                        <button id="exitCastModeButton" class="hidden" type="button">Stop Cast Mode</button>
                     </div>
                 </div>
 
@@ -860,9 +886,8 @@
                     </div>
 
                     <div class="flex-row">
-                        <label for="castMode" id="castModeLabel">Is casting:</label>
-                        <input type="checkbox" id="castMode" value="true">
-                        <button id="exitCastModeButton" class="hidden" type="button">Stop Cast Mode</button>
+                        <label for="useNashvilleNotation">Nashville notation:</label>
+                        <input type="checkbox" id="useNashvilleNotation" value="true">
                     </div>
                 </div>
 
@@ -892,13 +917,29 @@
                     </div>
 
                     <div class="flex-row">
-                        <button id="hideAndFitButton" type="button">Hide & Fit</button>
-                        <button id="hideButton" type="button">Hide</button>
+                        <label for="nashvilleHints">Nashville hints:</label>
+                        <select id="nashvilleHints">
+                            <option value="" selected>None</option>
+                            <option value="right">Right</option>
+                            <option value="left">Left</option>
+                        </select>
                     </div>
                 </div>
             </div>
 
-            <div id="detectedKey" class="detected-key"></div>
+            <div class="flex-row align-flex-center">
+                <div class="flex-column flex12 align-flex-start">
+                    <div id="detectedKey" class="detected-key"></div>
+                </div>
+                <div class="controls flex-column flex10 align-flex-end">
+                    <div class="flex-row">
+                        <button id="hideAndFitButton" type="button">Hide & Fit</button>
+                        <button id="hideButton" type="button">Hide</button>
+                    </div>
+                </div>
+
+            </div>
+
 
             <div class="keyboard-shortcuts">
                 Keyboard shortcuts:
@@ -1934,12 +1975,25 @@
                 return noteRenderer.getNoteName({noteDegree, noteName}, chord.key, chord.isChordLegend ? undefined : transposeConfig, noteNamingConfig);
             }
 
+            function processNashvilleHint(noteName) {
+                if (!chord.key || chord.isChordLegend || !noteNamingConfig.nashvilleHints) {
+                    return '';
+                }
+
+                const noteDegree = noteChart.getNoteDegree(noteName);
+                return noteNamingConfig.useNashvilleNotation
+                        ? noteRenderer.getNoteName({noteDegree, noteName}, chord.key, transposeConfig, noteNamingConfig)
+                        : noteChart.getNumeral(noteDegree, chord.key.keyDegree);
+            }
+
             if (!chord.root) {
                 return {chordName: chord.chordName, key: chord.key};
             }
 
             const root = processNote(chord.root);
+            const rootNashvilleHint = processNashvilleHint(chord.root);
             const bass = chord.bass ? processNote(chord.bass) : '';
+            const bassNashvilleHint = chord.bass ? processNashvilleHint(chord.bass) : '';
             const bassSeparator = bass ? '/' : '';
 
             let variant = chord.variant ? normalizeAccidentals(chord.variant) : '';
@@ -1955,11 +2009,13 @@
             }
 
             return {
-                chordName: root + variantSeparator + variant + bassSeparator + bass,
+                chordName: root + variantSeparator + variant + rootNashvilleHint + bassSeparator + bass + bassNashvilleHint,
                 root,
+                rootNashvilleHint,
                 variant,
                 variantSeparator,
                 bass,
+                bassNashvilleHint,
                 bassSeparator,
                 key: chord.key
             };
@@ -2028,11 +2084,15 @@
                 }
 
                 return span(() => span(() => charSpans(fragment.data.prefix), 'chord-prefix') +
-                                  span(() => span(() => charSpans(chord.root ?? chord.chordName), 'chord-name') +
+                                  span(() => span(() => charSpans(noteNamingConfig.nashvilleHints == 'left' && chord.rootNashvilleHint), 'nashville-hint') +
+                                             span(() => charSpans(chord.root ?? chord.chordName), 'chord-name') +
                                              span(() => charSpans(chord.variantSeparator), 'variant-separator') +
                                              span(() => charSpans(chord.variant), 'variant') +
+                                             span(() => charSpans(noteNamingConfig.nashvilleHints == 'right' && chord.rootNashvilleHint), 'nashville-hint') +
                                              span(() => charSpans(chord.bassSeparator), 'bass-separator') +
-                                             span(() => charSpans(chord.bass), 'bass'),
+                                             span(() => charSpans(noteNamingConfig.nashvilleHints == 'left' && chord.bassNashvilleHint), 'nashville-hint') +
+                                             span(() => charSpans(chord.bass), 'bass') +
+                                             span(() => charSpans(noteNamingConfig.nashvilleHints == 'right' && chord.bassNashvilleHint), 'nashville-hint'),
                                        ['chord', chord.key && noteNamingConfig.useNashvilleNotation && 'nashville']) +
                                   span(() => charSpans(fragment.data.suffix), 'chord-suffix'),
                             'chord-container') + whitespace;
@@ -2578,7 +2638,8 @@
                 preferredAccidental: data.preferredAccidental.get(),
                 useNashvilleNotation: data.useNashvilleNotation.get(),
                 useAccidentalsFromKey: data.useAccidentalsFromKey.get(),
-                originalNoteNames: data.originalNoteNames.get()
+                originalNoteNames: data.originalNoteNames.get(),
+                nashvilleHints: data.nashvilleHints.get()
             };
 
             const transposeConfig = {
@@ -2899,6 +2960,7 @@
             }),
             title: bindData({hash: 'title', followHashDeletion: true}, () => updateTitle()),
             artist: bindData({hash: 'artist', followHashDeletion: true}, () => updateTitle()),
+            nashvilleHints: bindData({el: doc.nashvilleHints, cookie: true}, () => redraw(true)),
 
             getParsedLines: (function() {
                 let cacheKey = undefined;
