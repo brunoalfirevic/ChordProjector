@@ -2964,7 +2964,12 @@
             }),
             title: bindData({hash: 'title', followHashDeletion: true}, () => updateTitle()),
             artist: bindData({hash: 'artist', followHashDeletion: true}, () => updateTitle()),
-            nashvilleHints: bindData({el: doc.nashvilleHints, cookie: true}, () => redraw(true)),
+            nashvilleHints: bindData({el: doc.nashvilleHints, cookie: true}, (_, oldValue) => {
+                if (oldValue) {
+                    setValueInCookieDb('db:previouslySelectedNashvilleHints', oldValue);
+                }
+                redraw(true)
+            }),
 
             getParsedLines: (function() {
                 let cacheKey = undefined;
@@ -3026,7 +3031,11 @@
                 }
 
                 case 's': { // Toggle Nashville hints
-                    data.nashvilleHints.set(data.nashvilleHints.get() ? '' : 'right');
+                    if (data.nashvilleHints.get()) {
+                        data.nashvilleHints.set('');
+                    } else {
+                        data.nashvilleHints.set(getValueFromCookieDb('db:previouslySelectedNashvilleHints') ?? 'right');
+                    }
                     break;
                 }
             }
