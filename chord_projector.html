@@ -3030,7 +3030,7 @@
                 }
                 redraw(true)
             }),
-            prettyBars: bindData({el: doc.prettyBars, hash: true, cookie: true}, () => redraw()),
+            prettyBars: bindData({el: doc.prettyBars, hash: true, cookie: true}, () => redraw(true)),
 
             getParsedLines: (function() {
                 let cacheKey = undefined;
