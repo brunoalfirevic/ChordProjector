@@ -601,9 +601,60 @@
             width: 1ch;
         }
 
+        /* Pretty bars */
+        .pretty-bars .line.chord-line:not(.followed-by-tablature-line) {
+            .line-envelope {
+                display: inline-block;
+                box-sizing: border-box;
+
+                &:has(> .char[content="|"]:first-child) {
+                    margin-left: 0.5ch
+                }
+
+                border-top: solid 1px grey;
+
+                .char[content="|"] {
+                    display: inline-block !important;
+                    color: transparent !important;
+                    transform: unset !important;
+
+                    &:first-child {
+                        box-sizing: border-box;
+                        border-left: solid 1px grey;
+                        width: 0.5ch;
+                    }
+
+                    &:not(:first-child):not(:last-child) {
+                        box-sizing: border-box;
+                        border-left: solid 1px grey;
+                        margin-left: 0.5ch;
+                        width: 0.5ch;
+                    }
+
+                    &:last-child {
+                        box-sizing: content-box;
+                        border-right: solid 1px grey;
+                        width: 0.5ch;
+                    }
+                }
+            }
+
+            &.followed-by-text-line .line-envelope {
+                .char:first-child[content="|"],
+                .char:last-child[content="|"] {
+                    transform: scaleY(1.4) translateY(0.1428em) !important;
+                }
+            }
+
+            line-height: 1.2 !important;
+
+            + .text-line {
+                margin-bottom: 1px;
+            }
+        }
+
         .polished {
             /* Pretty tablatures */
-
             .pretty-tablatures {
                 .tablature-line .char[content="-"],
                 .tablature-line .char[content="|"] {
@@ -857,6 +908,11 @@
                     <div class="flex-row">
                         <label for="originalNoteNames">Original note names:</label>
                         <input type="checkbox" id="originalNoteNames" value="true">
+                    </div>
+
+                    <div class="flex-row">
+                        <label for="prettyBars" id="prettyBarsLabel">Pretty bars:</label>
+                        <input type="checkbox" id="prettyBars" value="true">
                     </div>
 
                     <div class="flex-row">
@@ -2107,10 +2163,13 @@
         function createLineHtmlElement(line, transposeConfig, noteNamingConfig) {
             const element = createElement('div', ['line',
                                                   line.chords.length > 0 && 'has-any-chords',
+                                                  line.is('chords') && 'chord-line',
+                                                  line.is('text') && 'text-line',
                                                   line.is('whitespace') && 'empty-line',
                                                   line.is('header') && 'header-line',
                                                   line.is('tablature') && 'tablature-line',
                                                   line.is('tablatureTiming') && 'tablature-timing-line',
+                                                  line.nextLine?.is('text') && 'followed-by-text-line',
                                                   line.nextLine?.is('tablature') && 'followed-by-tablature-line',
                                                   line.nextLine?.is('header') && 'followed-by-header-line',
                                                   line.nextLine?.is('tablatureTiming') && 'followed-by-tablature-timing-line']);
@@ -2119,7 +2178,8 @@
                 element.innerHTML = "<br>"
             } else {
                 element.innerHTML = line.fragments && line.fragments.length
-                                        ? line.fragments.map(f => spanifyFragment(line, f, transposeConfig, noteNamingConfig)).join('')
+                                        ? span(() => line.fragments.map(f => spanifyFragment(line, f, transposeConfig, noteNamingConfig)).join(''),
+                                               'line-envelope')
                                         : encodeHtml(line.text);
             }
 
@@ -2668,6 +2728,7 @@
             applyClass(doc.content, data.colorfulHeaders.get(), 'colorful-headers');
             applyClass(doc.content, data.stylizeAccidentals.get(), 'stylize-accidentals');
             applyClass(doc.content, data.prettyTablatures.get(), 'pretty-tablatures');
+            applyClass(doc.content, data.prettyBars.get(), 'pretty-bars');
 
             if (lines.detectedKey != undefined) {
                 const keyName = noteRenderer.getKeyName(lines.detectedKey, transposeConfig, noteNamingConfig);
@@ -2969,6 +3030,7 @@
                 }
                 redraw(true)
             }),
+            prettyBars: bindData({el: doc.prettyBars, hash: true, cookie: true}, () => redraw()),
 
             getParsedLines: (function() {
                 let cacheKey = undefined;
@@ -3035,6 +3097,11 @@
                     } else {
                         data.nashvilleHints.set(getValueFromCookieDb('db:previouslySelectedNashvilleHints') ?? 'right');
                     }
+                    break;
+                }
+
+                case 'b': { // Toggle pretty bars
+                    data.prettyBars.toggle();
                     break;
                 }
             }
