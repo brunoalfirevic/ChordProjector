@@ -318,6 +318,8 @@
         }
 
         .line:not(.header-line) .metadata-container {
+            position: relative;
+            z-index: -1;
             background-color: rgb(232, 232, 232);
             border-radius: 5px;
         }
@@ -644,6 +646,10 @@
                 .char:last-child[content="|"] {
                     transform: scaleY(1.4) translateY(0.1428em) !important;
                 }
+            }
+
+            &:not(.followed-by-text-line) .line-envelope .char[content="|"] {
+                transform: scaleY(0.8) translateY(-0.2em) !important;
             }
 
             line-height: 1.2 !important;
