@@ -718,7 +718,8 @@
             /* Enhance the look of vertical bar characters */
             .line:not(.tablature-line):not(.followed-by-tablature-line) .char[content="|"] {
                 display: inline-block;
-                transform: translateY(-1px) scaleY(1.2);
+                transform: scaleY(1.2) scaleX(1.1);
+                transform-origin: bottom;
                 font-weight: 700;
             }
 
