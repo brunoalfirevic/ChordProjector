@@ -324,9 +324,13 @@
             border-radius: 5px;
         }
 
+        .line:not(.header-line) .char[content="|"] + .metadata-container {
+            left: -0.4ch;
+        }
+
         .colorful-headers .line:not(.header-line) .metadata-container {
-            margin-left: 0.2em;
-            margin-right: 0.2em;
+            margin-left: 0.4ch;
+            margin-right: 0.4ch;
             background-color: rgb(210, 250, 210);
         }
 
@@ -335,11 +339,11 @@
         }
 
         .colorful-headers .line:not(.header-line) .metadata-container .brace:first-child {
-            margin-right: -0.2em;
+            margin-right: -0.4ch;
         }
 
         .colorful-headers .line:not(.header-line) .metadata-container .brace:last-child {
-            margin-left: -0.2em;
+            margin-left: -0.4ch;
         }
 
         .colorful-headers .line.header-line .title {
