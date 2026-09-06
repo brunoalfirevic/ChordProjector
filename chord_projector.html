@@ -782,6 +782,27 @@
                 }
             }
 
+            /* Symbol for connected chord */
+            .chord-prefix, .chord-suffix {
+                .char[content="⏜"],
+                .char[content="⏝"],
+                .char[content="◠"],
+                .char[content="◡"],
+                .char[content="⌒"],
+                .char[content="⌣"] {
+                    /* content replacement groundwork */
+                    position: relative; display: inline-block; width: 1ch; &::first-letter {color: transparent;} &::after {position: absolute; left: 0; top: 0;}
+
+                    &::after {
+                        content: '⏝';
+                        transform: translateY(0.5em);
+
+                        text-shadow: 0  0.2px 0 black,
+                                     0 -0.2px 0 black;
+                    }
+                }
+            }
+
             /* Beat symbols */
             .line .chord-suffix .char[content="▮"],
             .line .chord-suffix .char[content="▯"] {
@@ -1817,7 +1838,7 @@
             const fingering = /(\d|x){4,7}/;
 
             const chord = rgx([/^/, rgx.lookBehind(rgx.chars({whitespace: true}, '|()-╶}╴⏜⏝◠◡⌒⌣'))],
-                              rgx.chars({name: "prefix", optional: true}, '⤺ᑉ~<>'),
+                              rgx.chars({name: "prefix", optional: true, repeat: true}, '⤺ᑉ~<>⏜⏝◠◡⌒⌣'),
                               rgx({name: "chordName"},
                                   [rgx.of('N.C.'),
                                    /%/,
