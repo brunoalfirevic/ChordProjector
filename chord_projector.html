@@ -608,59 +608,69 @@
         }
 
         /* Pretty bars */
-        .pretty-bars .line.chord-line:not(.followed-by-tablature-line) {
-            .line-envelope {
-                display: inline-block;
-                box-sizing: border-box;
+        .pretty-bars {
+            .line.chord-line:not(.followed-by-tablature-line):not(.chord-legend-line) {
+                .line-envelope {
+                    display: inline-block;
+                    box-sizing: border-box;
 
-                &:has(> .char[content="|"]:first-child) {
-                    margin-left: 0.5ch
-                }
-
-                border-top: solid 1px grey;
-
-                .char[content="|"] {
-                    display: inline-block !important;
-                    color: transparent !important;
-                    transform: unset !important;
-
-                    &:first-child {
-                        box-sizing: border-box;
-                        border-left: solid 1px grey;
-                        width: 0.5ch;
+                    &:has(> .char[content="|"]:first-child) {
+                        margin-left: 0.5ch
                     }
 
-                    &:not(:first-child):not(:last-child) {
-                        box-sizing: border-box;
-                        border-left: solid 1px grey;
-                        margin-left: 0.5ch;
-                        width: 0.5ch;
-                    }
+                    border-top: solid 1px gray;
 
-                    &:last-child {
-                        box-sizing: content-box;
-                        border-right: solid 1px grey;
-                        width: 0.5ch;
+                    .char[content="|"] {
+                        display: inline-block !important;
+                        color: transparent !important;
+                        transform: unset !important;
+                        transform-origin: top !important;
+
+                        &:first-child {
+                            box-sizing: border-box;
+                            border-left: solid 1px gray;
+                            width: 0.5ch;
+                        }
+
+                        &:not(:first-child):not(:last-child) {
+                            box-sizing: border-box;
+                            border-left: solid 1px gray;
+                            margin-left: 0.5ch;
+                            width: 0.5ch;
+                        }
+
+                        &:last-child {
+                            box-sizing: content-box;
+                            border-right: solid 1px gray;
+                            width: 0.5ch;
+                        }
                     }
                 }
-            }
 
-            &.followed-by-text-line .line-envelope {
-                .char:first-child[content="|"],
-                .char:last-child[content="|"] {
-                    transform: scaleY(1.4) translateY(0.1428em) !important;
+                &.followed-by-text-line .line-envelope {
+                    .char:first-child[content="|"],
+                    .char:last-child[content="|"] {
+                        transform: scaleY(1.3) !important;
+                    }
+                }
+
+                &:not(.followed-by-text-line) .line-envelope .char[content="|"] {
+                    transform: scaleY(0.8) !important;
+                }
+
+                &:not(:first-child) {
+                    margin-top: -1px;
+                }
+
+                &:first-child {
+                    margin-bottom: -1px;
                 }
             }
+        }
 
-            &:not(.followed-by-text-line) .line-envelope .char[content="|"] {
-                transform: scaleY(0.8) translateY(-0.2em) !important;
-            }
-
-            line-height: 1.2 !important;
-
-            + .text-line {
-                margin-bottom: 1px;
-            }
+        .line.chord-line:not(.followed-by-tablature-line):not(.chord-legend-line) + .text-line {
+            margin-top: -0.085em !important;
+            margin-bottom: 0.085em !important;
         }
 
         .polished {
@@ -2196,6 +2206,7 @@
             const element = createElement('div', ['line',
                                                   line.chords.length > 0 && 'has-any-chords',
                                                   line.is('chords') && 'chord-line',
+                                                  line.is('chordLegend') && 'chord-legend-line',
                                                   line.is('text') && 'text-line',
                                                   line.is('whitespace') && 'empty-line',
                                                   line.is('header') && 'header-line',
