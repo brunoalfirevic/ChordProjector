@@ -161,6 +161,8 @@
         }
 
         .column {
+            display: flex;
+            flex-direction: column;
             flex-shrink: 0;
             position: relative;
             margin-right: 10px;
@@ -658,7 +660,7 @@
                     transform: scaleY(0.8) !important;
                 }
 
-                &:not(:first-child) {
+                &:not(:first-child) .line-envelope {
                     margin-top: -1px;
                 }
 
