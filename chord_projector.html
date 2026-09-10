@@ -3096,7 +3096,9 @@
     </script>
 
     <script id="eventListenersSetup">
-        window.addEventListener('resize', () => redraw());
+        window.addEventListener('resize', () => {
+            setTimeout(() => redraw(true), 400);
+        });
 
         // Add keyboard shortcuts
         document.addEventListener('keydown', debounce(e => {
