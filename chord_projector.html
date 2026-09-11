@@ -3104,7 +3104,7 @@
                 if (entries.some(e => e.contentBoxSize)) {
                     setTimeout(() => redraw(true), 0);
                 }
-            }).observe(doc.contentContainer);
+            }).observe(document.body);
         } else {
             window.addEventListener('resize', () => setTimeout(() => redraw(true), 0));
         }
